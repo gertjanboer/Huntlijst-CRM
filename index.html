@@ -503,7 +503,7 @@ window.addLog=(id)=>{
   const d=document.getElementById('logDate')?.value||getToday();
   const t=document.getElementById('logText')?.value||'';
   if(!t.trim())return;
-  c.log=[{date:d,text:t.trim()},...(c.log||[])];
+  c.log=[...(c.log||[]),{date:d,text:t.trim()}].sort((a,b)=>(b.date||"")>(a.date||"")?1:(b.date||"")<(a.date||"")?-1:0);
   if(d>=(c.lastContact||''))c.lastContact=d;
   state.showLogForm=false;save();render();
 }
