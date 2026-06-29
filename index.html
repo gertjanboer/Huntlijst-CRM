@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Huntlijst CRM</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --surface-0:#f0f0ed;--surface-1:#f7f7f5;--surface-2:#ebebea;
+  --text-primary:#1a1a18;--text-secondary:#5a5a55;--text-muted:#8a8a85;
+  --border:#d8d8d4;--border-strong:#b8b8b4;--border-accent:#3a7fd4;
+  --bg-accent:#ddeeff;--text-accent:#1255a0;--fill-accent:#185fa5;--on-accent:#fff;
+  --bg-warning:#fff3d4;--border-warning:#c47a0a;--text-warning:#8a5000;
+  --bg-danger:#ffeeee;--border-danger:#cc4444;--text-danger:#a02020;
+  --text-success:#1a7a40;
+  --radius:6px;
+  --font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --font-mono:'SF Mono','Fira Mono','Consolas',monospace;
+}
+body{font-family:var(--font-sans);font-size:13px;color:var(--text-primary);background:var(--surface-0);min-height:100vh}
+.app{display:flex;flex-direction:column;min-height:100vh}
+.topbar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--surface-1);border-bottom:0.5px solid var(--border);flex-shrink:0}
+.topbar-title{font-size:15px;font-weight:600;color:var(--text-primary);margin-right:8px;letter-spacing:-.3px}
+.prod-tabs{display:flex;gap:4px}
+.prod-tab{padding:4px 12px;border-radius:var(--radius);border:0.5px solid var(--border);background:transparent;cursor:pointer;font-size:12px;color:var(--text-secondary);transition:all .15s;font-family:var(--font-sans)}
+.prod-tab.active{background:var(--bg-accent);border-color:var(--border-accent);color:var(--text-accent);font-weight:500}
+.prod-tab:hover:not(.active){background:var(--surface-2)}
+.export-btn{margin-left:auto;padding:5px 14px;border-radius:var(--radius);border:0.5px solid var(--border-accent);background:var(--bg-accent);color:var(--text-accent);cursor:pointer;font-size:12px;font-weight:500;font-family:var(--font-sans)}
+.export-btn:hover{background:var(--fill-accent);color:var(--on-accent)}
+.nav-tabs{display:flex;border-bottom:0.5px solid var(--border);background:var(--surface-1);flex-shrink:0}
+.nav-tab{padding:8px 18px;cursor:pointer;font-size:13px;color:var(--text-secondary);border-bottom:2px solid transparent;transition:all .15s;user-select:none}
+.nav-tab.active{color:var(--text-accent);border-bottom-color:var(--fill-accent);font-weight:500}
+.nav-tab:hover:not(.active){color:var(--text-primary)}
+.toolbar{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:0.5px solid var(--border);background:var(--surface-1);flex-shrink:0;flex-wrap:wrap}
+.filter-select{padding:4px 8px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:12px;cursor:pointer;font-family:var(--font-sans)}
+.search-input{padding:4px 10px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:12px;width:180px;font-family:var(--font-sans)}
+.search-input:focus{outline:none;border-color:var(--border-accent)}
+.count-badge{margin-left:auto;font-size:11px;color:var(--text-muted)}
+.add-btn{padding:4px 12px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--surface-2);color:var(--text-primary);cursor:pointer;font-size:12px;font-family:var(--font-sans)}
+.add-btn:hover{background:var(--surface-0);border-color:var(--border-strong)}
+.table-wrap{overflow:auto;flex:1}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{padding:7px 12px;text-align:left;font-weight:500;font-size:11px;color:var(--text-muted);border-bottom:0.5px solid var(--border);background:var(--surface-1);position:sticky;top:0;z-index:1;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;user-select:none;white-space:nowrap}
+th:hover{color:var(--text-secondary)}
+td{padding:7px 12px;border-bottom:0.5px solid var(--border);vertical-align:middle;color:var(--text-primary)}
+tr.overdue td{background:rgba(162,45,45,.12)}
+tr.warn td{background:rgba(133,79,11,.1)}
+tr:hover td{background:var(--surface-1);cursor:pointer}
+.prio-badge{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-size:11px;font-weight:600}
+.p1{background:#fde8e8;color:#a32020}
+.p2{background:#fef0dc;color:#8a4a00}
+.p3{background:#fafae0;color:#6a5800}
+.p4{background:#ebebea;color:#8a8a85;border:0.5px solid #d8d8d4}
+.date-mono{font-family:var(--font-mono);font-size:11px;color:var(--text-secondary)}
+.date-overdue{color:var(--text-danger)!important;font-weight:600}
+.date-warn{color:var(--text-warning)!important;font-weight:600}
+.type-chip{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;background:var(--surface-2);border:0.5px solid var(--border);color:var(--text-secondary)}
+.prod-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:2px}
+.pd-ia{background:#185fa5}.pd-px{background:#0f6e56}
+
+.detail-panel{padding:20px;max-width:760px;margin:0 auto}
+.detail-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:20px}
+.detail-avatar{width:48px;height:48px;border-radius:50%;background:var(--bg-accent);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:16px;color:var(--text-accent);flex-shrink:0}
+.detail-name{font-size:18px;font-weight:600;margin-bottom:2px}
+.detail-sub{font-size:13px;color:var(--text-secondary)}
+.back-btn{padding:4px 10px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--surface-2);color:var(--text-secondary);cursor:pointer;font-size:12px;margin-bottom:16px;font-family:var(--font-sans)}
+.back-btn:hover{background:var(--surface-0)}
+.agenda-box{background:var(--bg-warning);border:0.5px solid var(--border-warning);border-radius:var(--radius);padding:12px 14px;margin-bottom:16px}
+.agenda-label{font-size:11px;font-weight:500;color:var(--text-warning);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.fields-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.field-group{display:flex;flex-direction:column;gap:3px}
+.field-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;font-weight:500}
+.field-value{font-size:13px;color:var(--text-primary);padding:5px 8px;border-radius:var(--radius);border:0.5px solid transparent;background:transparent;cursor:text;min-height:28px;transition:all .12s}
+.field-value:hover{border-color:var(--border);background:var(--surface-2)}
+.field-value:focus{outline:none;border-color:var(--border-accent);background:var(--surface-2)}
+.field-input{font-size:13px;color:var(--text-primary);padding:5px 8px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--surface-2);width:100%;font-family:var(--font-sans)}
+.field-input:focus{outline:none;border-color:var(--border-accent)}
+.field-select{font-size:13px;color:var(--text-primary);padding:4px 8px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--surface-2);font-family:var(--font-sans);width:100%}
+.field-select:focus{outline:none;border-color:var(--border-accent)}
+.section-title{font-size:11px;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;padding-bottom:4px;border-bottom:0.5px solid var(--border)}
+.log-entry{padding:10px 0;border-bottom:0.5px solid var(--border)}
+.log-date{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);margin-bottom:3px}
+.log-text{font-size:13px;color:var(--text-primary);line-height:1.5}
+.add-log-btn{padding:6px 14px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--surface-2);color:var(--text-primary);cursor:pointer;font-size:12px;margin-top:12px;font-family:var(--font-sans)}
+.add-log-btn:hover{border-color:var(--border-strong);background:var(--surface-0)}
+.log-form{margin-top:10px;display:flex;flex-direction:column;gap:8px;background:var(--surface-1);padding:12px;border-radius:var(--radius);border:0.5px solid var(--border)}
+.log-textarea{padding:8px 10px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:13px;font-family:var(--font-sans);resize:vertical;min-height:80px;width:100%}
+.log-textarea:focus{outline:none;border-color:var(--border-accent)}
+.save-log-btn{padding:5px 14px;border-radius:var(--radius);border:0.5px solid var(--border-accent);background:var(--bg-accent);color:var(--text-accent);cursor:pointer;font-size:12px;font-weight:500;font-family:var(--font-sans)}
+.save-log-btn:hover{background:var(--fill-accent);color:var(--on-accent)}
+.prod-checkboxes{display:flex;gap:12px;flex-wrap:wrap}
+.prod-check{display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--text-secondary)}
+.new-contact-form{background:var(--surface-1);border:0.5px solid var(--border);border-radius:var(--radius);margin:12px 16px;padding:16px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.form-row{display:flex;flex-direction:column;gap:3px}
+.form-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;font-weight:500}
+.form-input{padding:5px 8px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:13px;font-family:var(--font-sans)}
+.form-input:focus{outline:none;border-color:var(--border-accent)}
+.form-actions{display:flex;gap:8px;margin-top:14px}
+.btn-primary{padding:5px 14px;border-radius:var(--radius);border:0.5px solid var(--border-accent);background:var(--bg-accent);color:var(--text-accent);cursor:pointer;font-size:12px;font-weight:500;font-family:var(--font-sans)}
+.btn-primary:hover{background:var(--fill-accent);color:var(--on-accent)}
+.btn-cancel{padding:5px 14px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--surface-2);color:var(--text-secondary);cursor:pointer;font-size:12px;font-family:var(--font-sans)}
+.btn-cancel:hover{background:var(--surface-0)}
+.empty-state{text-align:center;padding:40px;color:var(--text-muted);font-size:13px}
+.del-btn{padding:3px 8px;border-radius:var(--radius);border:0.5px solid var(--border-danger);background:var(--bg-danger);color:var(--text-danger);cursor:pointer;font-size:11px;margin-left:auto;font-family:var(--font-sans)}
+.del-btn:hover{background:#5a1a1a}
+.companies-list{padding:16px}
+.company-card{background:var(--surface-1);border:0.5px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:8px}
+.company-name{font-size:14px;font-weight:500;margin-bottom:4px}
+.company-contacts{font-size:12px;color:var(--text-secondary);margin-bottom:6px;line-height:1.5}
+.content-scroll{flex:1;overflow:auto}
+</style>
+</head>
+<body>
+<div class="app" id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const STORAGE_KEY='crm_contacts_v2';
+const COMPANIES_KEY='crm_companies_v2';
+const TYPES=['Investeerder','Recruiter','Directeur','Adviseur','Advocaat','Interimmer','Interimnetwerk','Bank'];
+const PRODS=['Interim & Advies','Projaxis'];
+const PRIOS=[1,2,3,4];
+const TODAY='2026-06-29';
+
+const START_DATA=[
+  {achternaam:"Barenbrug",voornaam:"Wilfred",tv:"",rol:"Eigenaar",bedrijf:"Neope",type:"Investeerder",prio:2,lastContact:"2026-06-02",nextContact:"2026-08-15",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-02",text:"2/6 Appcontact na bericht via Stefan dat hij Wilfred een burnout heeft. Over 2 mnd eens vragen hoe het gaat"}]},
+  {achternaam:"Boerman",voornaam:"Jan",tv:"",rol:"Senior consultant",bedrijf:"Taurus",type:"Adviseur",prio:2,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"",text:"Bellen via desk"}]},
+  {achternaam:"Bos",voornaam:"Marco",tv:"de",rol:"",bedrijf:"Palliter",type:"Investeerder",prio:2,lastContact:"2026-05-18",nextContact:"2026-09-05",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-05-18",text:"18/5 Bijgesproken. Had niet direct iets. Over 3 mnd weer even in de lucht komen"}]},
+  {achternaam:"Braat",voornaam:"Stefan",tv:"",rol:"",bedrijf:"",type:"Directeur",prio:2,lastContact:"2026-05-11",nextContact:"",agendaNotitie:"",producten:["Interim & Advies","Projaxis"],log:[{date:"2026-05-11",text:"Staat op de Projaxis lijst"}]},
+  {achternaam:"Breeijen",voornaam:"Edwin",tv:"den",rol:"",bedrijf:"",type:"Directeur",prio:2,lastContact:"2026-04-15",nextContact:"2026-06-06",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-05-27",text:"27/5 Iets later bellen, als ik Martijn gesproken heb. 15/4 Bijgesproken, over een maand vragen of hij nog iets uit zijn netwerk gehoord heeft"}]},
+  {achternaam:"Broer",voornaam:"Kasper",tv:"",rol:"",bedrijf:"Xanthic",type:"Recruiter",prio:2,lastContact:"2026-05-06",nextContact:"2026-06-06",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-05-05",text:"5/5 Profiel gedeeld, afspraak maken met Tom"}]},
+  {achternaam:"Catz",voornaam:"Wouter",tv:"van",rol:"Self employed",bedrijf:"",type:"Interimmer",prio:1,lastContact:"2026-06-08",nextContact:"2026-07-01",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-29",text:"29/6 Appje gestuurd. 8/6 Hij heeft Robert-Jan Broekhuijsen van Indutrade gesproken, had interesse in mijn profiel. Contact wordt Juli."}]},
+  {achternaam:"Coelewij",voornaam:"Piet",tv:"",rol:"CRO",bedrijf:"Econowind",type:"Directeur",prio:2,lastContact:"2026-05-27",nextContact:"2026-06-08",agendaNotitie:"Lijkt me sowieso leuk om te leren kennen. FF met Maarten overleggen",producten:["Interim & Advies"],log:[{date:"2026-06-01",text:"1/6 Opvolgmail voorsteldata gestuurd"}]},
+  {achternaam:"Csjetei",voornaam:"Istvan",tv:"",rol:"Partner",bedrijf:"Livingstone",type:"Adviseur",prio:1,lastContact:"2026-06-03",nextContact:"2026-06-19",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-08",text:"8/6 2 leads doorgekregen. Hem terugkoppelen hoe dit gelopen is."}]},
+  {achternaam:"Deneer",voornaam:"Dirk",tv:"",rol:"",bedrijf:"Nimbus",type:"Investeerder",prio:2,lastContact:"2026-04-20",nextContact:"2026-06-20",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-04-20",text:"20/4 App contact. Hebben niks concreets voor US en GER."}]},
+  {achternaam:"Dijk",voornaam:"Jurgen",tv:"van",rol:"Eigenaar",bedrijf:"Stepstone Corporate Finance",type:"Adviseur",prio:2,lastContact:"2026-05-06",nextContact:"2026-07-06",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-05-06",text:"6/5 Gesproken nav event. Geen actieve business in mijn veld, maar wel fijn contact"}]},
+  {achternaam:"Dijkstra",voornaam:"Nico",tv:"",rol:"M&A Advisor",bedrijf:"FTI Consulting",type:"Adviseur",prio:1,lastContact:"2026-06-09",nextContact:"2026-06-30",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-22",text:"22/6 Zit midden in proces, druk, lastig. 15/6 Appje gestuurd. 10/6 Belt mij morgen of vrijdag."}]},
+  {achternaam:"Doekes",voornaam:"Erik Jan",tv:"",rol:"Partner",bedrijf:"The Executive Network",type:"Recruiter",prio:1,lastContact:"2026-05-11",nextContact:"2026-06-27",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-05-19",text:"19/5 Gesproken, zitten minder in CEO en minder in interim."}]},
+  {achternaam:"Eijk",voornaam:"Arnold",tv:"van",rol:"",bedrijf:"Taurus",type:"Adviseur",prio:2,lastContact:"2026-02-11",nextContact:"2026-07-05",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-03-24",text:"24/3 Reminder appje gestuurd. Nu al meerdere keren benaderd. Ik laat het varen voor nu"}]},
+  {achternaam:"Eijsten",voornaam:"Jeroen",tv:"",rol:"Partner",bedrijf:"Board Trust",type:"Recruiter",prio:1,lastContact:"2026-06-15",nextContact:"2026-07-02",agendaNotitie:"Check of hij de opdracht gekregen heeft",producten:["Interim & Advies"],log:[{date:"2026-06-29",text:"29/6 Opvolg appje gestuurd. 15/6 Intake gehad. Potentieel traject kozijnenbedrijf Noord Holland"}]},
+  {achternaam:"Elderenbosch",voornaam:"Rolf",tv:"",rol:"Non Executive - Eigenaar",bedrijf:"Lime search",type:"Recruiter",prio:2,lastContact:"2026-06-02",nextContact:"2026-08-15",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-02",text:"2/6 Rolf gesproken, niet meer dagelijks actief binnen Lime. Heeft geïntroduceerd bij Kees-Jan"}]},
+  {achternaam:"Fabriek",voornaam:"Pike",tv:"",rol:"",bedrijf:"",type:"Directeur",prio:2,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"",text:"Leuke slimme ondernemer. Heeft geld"}]},
+  {achternaam:"Frericks",voornaam:"Daan",tv:"",rol:"Investment Director",bedrijf:"Gilde Equity",type:"Investeerder",prio:1,lastContact:"2026-06-15",nextContact:"2026-07-15",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-07-14",text:"14/7 op bezoek"}]},
+  {achternaam:"Geel",voornaam:"Tom",tv:"van",rol:"Managing Partner",bedrijf:"Xanthic",type:"Recruiter",prio:1,lastContact:"2026-05-13",nextContact:"2026-06-08",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-04",text:"4/6 Opvolg app gestuurd. 26/5 Wil hem spreken ipv mailen. 18/5 CV verstuurd. 13/5 Leuk gesprek, CV sturen tbv CFO VDK groep"}]},
+  {achternaam:"Geheniau",voornaam:"Guido",tv:"",rol:"Partner",bedrijf:"CommonWealth Investments",type:"Investeerder",prio:2,lastContact:"2026-04-16",nextContact:"2026-06-16",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-04-16",text:"16/4 Op borrel gesproken, appje verstuurd via LinkedIn"}]},
+  {achternaam:"Giesberts",voornaam:"Joost",tv:"",rol:"",bedrijf:"",type:"Directeur",prio:2,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[]},
+  {achternaam:"Gimbrère",voornaam:"Olav",tv:"",rol:"",bedrijf:"Betabit",type:"Directeur",prio:2,lastContact:"2026-04-10",nextContact:"2026-08-12",agendaNotitie:"",producten:["Interim & Advies","Projaxis"],log:[{date:"2026-05-27",text:"27/5 Opvolg appje gestuurd. 10/4 Gesproken. Interessante lead voor Projaxis, zit in portfolio Curiosity"}]},
+  {achternaam:"Gitsels",voornaam:"Marc",tv:"",rol:"",bedrijf:"5 Square",type:"Investeerder",prio:1,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[]},
+  {achternaam:"Grand",voornaam:"Richard",tv:"Le",rol:"Advocaat Insolventie recht",bedrijf:"Windt LeGrand Leeuwenburg Advocaten",type:"Advocaat",prio:2,lastContact:"2026-03-31",nextContact:"2026-06-05",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-03-31",text:"31/3 Geeft aan dat we op zijn radar staan"}]},
+  {achternaam:"Grift",voornaam:"Sjoerd",tv:"vd",rol:"Self employed",bedrijf:"",type:"Investeerder",prio:2,lastContact:"2026-06-21",nextContact:"2026-08-21",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-21",text:"21/6 Bijgesproken, gaat zelf investeren. Voelde weinig interesse."}]},
+  {achternaam:"Groep",voornaam:"Gertjan",tv:"van de",rol:"Eigenaar",bedrijf:"Van de Groep & Olsthorn",type:"Recruiter",prio:1,lastContact:"2026-06-22",nextContact:"2026-06-30",agendaNotitie:"Bijpraten over software club en feit dat ik me nu gevoelsmatig niet voldoende kan committeren. Wel open voor kleiner interim",producten:["Interim & Advies"],log:[{date:"2026-03-22",text:"22/3 Even goed bijgesproken. Na weekend terugbellen voor keuze verdere stappen"}]},
+  {achternaam:"Haas",voornaam:"Joost",tv:"de",rol:"Professor in herstructurering",bedrijf:"Insead",type:"Adviseur",prio:1,lastContact:"2026-05-04",nextContact:"2026-05-11",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-05-04",text:"4/5 LinkedIn uitnodiging gestuurd. Zou willen leren/sparren over mijn ontwikkeling"}]},
+  {achternaam:"Haccou",voornaam:"Tjeerd",tv:"",rol:"",bedrijf:"",type:"Directeur",prio:2,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[]},
+  {achternaam:"Hakvoort",voornaam:"Reinier",tv:"",rol:"DGA",bedrijf:"Dare Health Innovation",type:"Directeur",prio:1,lastContact:"2026-06-02",nextContact:"2026-06-30",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-24",text:"24/6 Opvolg appje gestuurd. 15/6 Opvolg appje beantwoord, nog geen concrete lead."}]},
+  {achternaam:"Heerschop",voornaam:"Wytse",tv:"",rol:"Directeur",bedrijf:"Nedcam",type:"Directeur",prio:2,lastContact:"2026-06-23",nextContact:"2026-07-07",agendaNotitie:"Morgen ff bellen",producten:["Interim & Advies"],log:[{date:"2026-06-23",text:"23/6 Deal met Bank lijkt rond te komen. Over twee weken polsen"}]},
+  {achternaam:"Heintjes",voornaam:"Tom",tv:"",rol:"Interim CEO",bedrijf:"",type:"Interimmer",prio:3,lastContact:"2026-05-06",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-05-06",text:"6/5 App gestuurd. Geen reactie. Tot nu toe niks aan gehad, op passief"}]},
+  {achternaam:"Horst",voornaam:"Richard",tv:"vd",rol:"",bedrijf:"",type:"Directeur",prio:4,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"",text:"Lijkt diesel service Emmeloord verkocht te hebben. Heeft mij hoog zitten"}]},
+  {achternaam:"Huijge",voornaam:"Mels",tv:"",rol:"Partner",bedrijf:"Active Capital Company",type:"Investeerder",prio:1,lastContact:"2026-06-20",nextContact:"2026-06-26",agendaNotitie:"Even aandacht besteden, ook aan Enno",producten:["Interim & Advies"],log:[{date:"2026-06-20",text:"20/6 Gesproken op Muiden. FF antw Enno afwachten"}]},
+  {achternaam:"Huijser",voornaam:"Stefan",tv:"",rol:"Operations manager",bedrijf:"TBK group",type:"Directeur",prio:4,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"",text:"Eens kijken naar het bedrijf. Mogelijk een leuke opportunity"}]},
+  {achternaam:"Huis in 't Veld",voornaam:"Marnix",tv:"",rol:"",bedrijf:"",type:"Directeur",prio:4,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"",text:"Privé weer contact leggen"}]},
+  {achternaam:"Huisman",voornaam:"Gert-Jan",tv:"",rol:"Managing Partner",bedrijf:"Anders Invest",type:"Investeerder",prio:1,lastContact:"2026-06-04",nextContact:"2026-07-04",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-04",text:"4/6 Info gedeeld. Beetje passief antwoord."}]},
+  {achternaam:"Huisman",voornaam:"Koert",tv:"",rol:"CEO",bedrijf:"Itsme Group",type:"Directeur",prio:2,lastContact:"2026-06-10",nextContact:"2026-09-15",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-15",text:"15/6 Kort bijgesproken. Gaat richting zomer doorkijken (familiebedrijf). Over 3 mnd bellen"}]},
+  {achternaam:"Hussen",voornaam:"Nick",tv:"van",rol:"",bedrijf:"i4hi",type:"Investeerder",prio:2,lastContact:"2026-03-18",nextContact:"2026-04-18",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-03-18",text:"18/3 Gesproken over Nedcam. Geen interesse"}]},
+  {achternaam:"Janssens",voornaam:"Reinout",tv:"",rol:"Eigenaar",bedrijf:"Velde",type:"Recruiter",prio:1,lastContact:"2026-06-11",nextContact:"2026-07-08",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-12",text:"12/6 Appje ontvangen met voorsteldatum. Bevestigd"}]},
+  {achternaam:"Jong",voornaam:"Jan Willem",tv:"de",rol:"DGA",bedrijf:"Iwell",type:"Directeur",prio:1,lastContact:"2026-06-12",nextContact:"2026-06-25",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-18",text:"18/6 Bijgesproken. Appje gestuurd dat ik met hem over CCO zou willen sparren"}]},
+  {achternaam:"Jong",voornaam:"Marvin",tv:"de",rol:"Partner",bedrijf:"MG Partners",type:"Investeerder",prio:1,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[]},
+  {achternaam:"Joritsma",voornaam:"Reinder",tv:"",rol:"",bedrijf:"",type:"Directeur",prio:4,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[]},
+  {achternaam:"Kerssemakers",voornaam:"Klaas",tv:"",rol:"COO",bedrijf:"Anthony Veder",type:"Directeur",prio:1,lastContact:"2026-05-19",nextContact:"2026-06-01",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-05-27",text:"27/5 Nog bellen of was het OK zo? 19/5 Kort bijgesproken, lichte teleurstelling op 'bedrijfskundige'."}]},
+  {achternaam:"Klaassen",voornaam:"Marc",tv:"",rol:"",bedrijf:"",type:"Directeur",prio:2,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"",text:"Heeft voldoende geld. Goede klik. Groot netwerk, mn retail vastgoed"}]},
+  {achternaam:"Klip",voornaam:"Maarten",tv:"van der",rol:"",bedrijf:"Econowind",type:"Investeerder",prio:2,lastContact:"2026-05-12",nextContact:"2026-08-17",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"",text:"Klus voor Econowind gaat niet door. Meer als netwerk reminder"}]},
+  {achternaam:"Kluyver",voornaam:"Cornee",tv:"de",rol:"",bedrijf:"Kruger",type:"Adviseur",prio:1,lastContact:"2026-06-25",nextContact:"2026-07-01",agendaNotitie:"Beeld krijgen hoe snel ze doorgaans in interim kunnen schakelen",producten:["Interim & Advies"],log:[{date:"2026-06-29",text:"29/6 Appje gestuurd of we kunnen bellen vooruitlopend op gesprek met Wouter"}]},
+  {achternaam:"Koops",voornaam:"Albert",tv:"",rol:"",bedrijf:"Averest Capital",type:"Investeerder",prio:2,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[]},
+  {achternaam:"Kooten",voornaam:"Gerald",tv:"van",rol:"Partner",bedrijf:"Anders Invest",type:"Investeerder",prio:2,lastContact:"2026-05-04",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-04-20",text:"20/4 Mail verstuurd nav tip Barend. Kreeg out of office, opvolgen"}]},
+  {achternaam:"Korthals Altes",voornaam:"Matthijs",tv:"",rol:"DGA",bedrijf:"Next Level Value",type:"Directeur",prio:1,lastContact:"2026-05-06",nextContact:"2026-06-03",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-05-30",text:"30/5 Check op data gestuurd. 11/5 Opvolg app gestuurd. 6/5 Bijgesproken."}]},
+  {achternaam:"Kranendonk",voornaam:"Ruben",tv:"",rol:"",bedrijf:"",type:"Directeur",prio:4,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[]},
+  {achternaam:"Kraan",voornaam:"Eric",tv:"",rol:"",bedrijf:"",type:"Directeur",prio:2,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"",text:"Misschien toch maar weer eens een bakkie doen"}]},
+  {achternaam:"Lange",voornaam:"Tom",tv:"de",rol:"Verkoopdirecteur",bedrijf:"Pon Equipment",type:"Directeur",prio:2,lastContact:"2026-04-17",nextContact:"2026-06-23",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-05-27",text:"27/5 Check bij Teus. 13/5 Teus heeft opgevolgd, geen contact"}]},
+  {achternaam:"Lely",voornaam:"Marieke",tv:"",rol:"Director industry",bedrijf:"CVC",type:"Investeerder",prio:1,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[]},
+  {achternaam:"Linker",voornaam:"Vivian",tv:"",rol:"Partner",bedrijf:"Top of Minds",type:"Recruiter",prio:1,lastContact:"2026-06-17",nextContact:"2026-06-25",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-17",text:"17/6 Gesproken over Heudra. Terugkoppelen"}]},
+  {achternaam:"Lokhorst",voornaam:"Olaf",tv:"",rol:"Directeur",bedrijf:"Zeppelin Power NL",type:"Directeur",prio:1,lastContact:"2026-06-03",nextContact:"2026-06-25",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-24",text:"24/6 Afgesproken om te bellen. 22/6 Belafspraak. 3/6 Appje gestuurd"}]},
+  {achternaam:"Louwers",voornaam:"Davy",tv:"",rol:"Partner",bedrijf:"Smile",type:"Investeerder",prio:2,lastContact:"2026-04-08",nextContact:"2026-05-04",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-04-08",text:"8/4 App gestuurd. 14/4 Gebeld zonder antwoord"}]},
+  {achternaam:"Merckel",voornaam:"Willem-Jan",tv:"",rol:"Partner",bedrijf:"Parcom",type:"Investeerder",prio:1,lastContact:"2026-06-10",nextContact:"2026-06-17",agendaNotitie:"In auto bellen",producten:["Interim & Advies"],log:[{date:"2026-06-10",text:"10/6 Appje gestuurd. 27/5 Geprobeerd te bellen, vragen hoe zij PMI aanpakken"}]},
+  {achternaam:"Mes",voornaam:"Kees-Jan",tv:"",rol:"Partner",bedrijf:"Boer & Croon",type:"Interimnetwerk",prio:1,lastContact:"2026-06-08",nextContact:"2026-06-26",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-26",text:"26/6 Afwachten of Juliette reageert. 11/6 Appje met info Nedcam."}]},
+  {achternaam:"Midden",voornaam:"Arthur",tv:"van",rol:"Partner",bedrijf:"Beaufort",type:"Adviseur",prio:1,lastContact:"2026-06-01",nextContact:"2026-06-25",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-01",text:"1/6 Prettig gesprek, gaan voor zomer offside doen op dienstverlening."}]},
+  {achternaam:"Millaard",voornaam:"Gijs",tv:"",rol:"Director",bedrijf:"Top of Minds",type:"Recruiter",prio:2,lastContact:"2026-06-09",nextContact:"2026-08-09",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-09",text:"9/6 Uitgelegd dat Confederatio het niet helemaal is voor mij"}]},
+  {achternaam:"Mutze",voornaam:"Caspar",tv:"",rol:"",bedrijf:"Intersaction",type:"Investeerder",prio:1,lastContact:"2026-05-07",nextContact:"2026-07-07",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-05-07",text:"7/5 Via App. Lead via vriend is nog niks. Over 2 mnd update"}]},
+  {achternaam:"Nijstad",voornaam:"Hans",tv:"",rol:"Oud Partner",bedrijf:"Uno",type:"Adviseur",prio:1,lastContact:"2026-06-03",nextContact:"2026-06-25",agendaNotitie:"Bellen nav meeting met Cornee",producten:["Interim & Advies"],log:[{date:"2026-06-03",text:"3/6 Bijgesproken, moet me scherper positioneren bij adviseur"}]},
+  {achternaam:"Noteboom",voornaam:"Ad",tv:"",rol:"Partner",bedrijf:"Smile",type:"Investeerder",prio:2,lastContact:"2026-06-11",nextContact:"2026-08-15",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-24",text:"24/6 Geen appje ontvangen, even laten rusten. 15/6 Opvolg appje."}]},
+  {achternaam:"Oirbans",voornaam:"Joep",tv:"",rol:"Interim CFO",bedrijf:"",type:"Interimmer",prio:1,lastContact:"2026-06-24",nextContact:"2026-06-26",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-24",text:"24/6 Appje gestuurd. 18/6 Gesproken, moeten bakkie plannen"}]},
+  {achternaam:"Pecasse",voornaam:"Jeroen",tv:"",rol:"Eigenaar",bedrijf:"PUUR Resultaat",type:"Adviseur",prio:2,lastContact:"2026-06-22",nextContact:"2026-08-22",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-24",text:"24/6 Leuk bijgesproken. Na de zomer bellen"}]},
+  {achternaam:"Phaff",voornaam:"Marinke",tv:"",rol:"CFO",bedrijf:"Pon",type:"Directeur",prio:1,lastContact:"2026-06-11",nextContact:"2026-07-07",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-15",text:"15/6 Europcar hebben ze al iemand, naam bij meerdere genoemd"}]},
+  {achternaam:"Pijnappel",voornaam:"Max",tv:"",rol:"Partner",bedrijf:"Delta Participaties",type:"Investeerder",prio:2,lastContact:"2026-06-08",nextContact:"2026-08-21",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-08",text:"8/6 Appje gestuurd. Na zomer catchup"}]},
+  {achternaam:"Podt",voornaam:"Chris",tv:"",rol:"Bijzonder beheer",bedrijf:"ABN Amro",type:"Bank",prio:2,lastContact:"2026-06-08",nextContact:"2026-08-15",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-08",text:"8/6 Gaat weg bij ABN Amro, pas vrij vanaf Juli. Oktober weer aan de slag."}]},
+  {achternaam:"Post",voornaam:"Pepijn",tv:"",rol:"Operating Partner",bedrijf:"Nordian",type:"Investeerder",prio:1,lastContact:"2026-06-11",nextContact:"2026-06-25",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-11",text:"11/6 Bezoek ingepland op 25/6"}]},
+  {achternaam:"Pronk",voornaam:"Dirk-Jan",tv:"",rol:"Bijzonder beheer",bedrijf:"ING",type:"Bank",prio:2,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"",text:"Contact leggen na afronden onderzoek"}]},
+  {achternaam:"Pruijsen",voornaam:"Kasper",tv:"",rol:"Eigenaar",bedrijf:"Fenix Leadership",type:"Adviseur",prio:1,lastContact:"2026-06-24",nextContact:"2026-06-26",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-24",text:"24/6 Datum gepland om te bellen"}]},
+  {achternaam:"Pynenburg",voornaam:"Jeroen",tv:"",rol:"CEO",bedrijf:"",type:"Directeur",prio:1,lastContact:"2026-05-30",nextContact:"2026-06-16",agendaNotitie:"CV appen bij terugkomst vakantie en vragen wat VCP betekent",producten:["Interim & Advies"],log:[{date:"2026-05-27",text:"27/5 Opvolg appje gestuurd. 22/5 Gesproken, nadenken over intro bij zijn investeerder"}]},
+  {achternaam:"Quant",voornaam:"Barend",tv:"",rol:"Interim CEO",bedrijf:"Greyt",type:"Interimmer",prio:1,lastContact:"2026-04-23",nextContact:"2026-06-15",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-05-29",text:"29/5 Gesproken, geen warme ingang bij Anders. Toch zelf proberen"}]},
+  {achternaam:"Sars",voornaam:"Joost",tv:"",rol:"Non-Exc Partner",bedrijf:"Nordian",type:"Investeerder",prio:1,lastContact:"2026-06-11",nextContact:"2026-06-26",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-11",text:"11/6 Leuk gesprek, doorverwezen naar Ops partner"}]},
+  {achternaam:"Schalken",voornaam:"Daan",tv:"",rol:"Advocaat Insolventie recht",bedrijf:"BG Legal",type:"Advocaat",prio:2,lastContact:"2026-04-14",nextContact:"2026-06-30",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-01",text:"1/6 Meeting gehad. Sparring, rapportje gemaakt."}]},
+  {achternaam:"Schipper",voornaam:"Kees-Jan",tv:"",rol:"Recruiter/Partner Interim",bedrijf:"Lime Search",type:"Recruiter",prio:1,lastContact:"2026-06-09",nextContact:"2026-06-29",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-09",text:"9/6 Gesprek op kantoor. Profielschets gestuurd. Na 3 wkn vragen wat de response was"}]},
+  {achternaam:"Schraven",voornaam:"Hank",tv:"",rol:"Partner",bedrijf:"Ox-Greenfield",type:"Investeerder",prio:1,lastContact:"2026-06-23",nextContact:"2026-06-26",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-23",text:"23/6 Gaat er niet uitkomen qua waardering. Afgesproken dat ik 2 belletjes doe"}]},
+  {achternaam:"Schroeder",voornaam:"Pieter",tv:"",rol:"DGA",bedrijf:"Nobel Capital Partners",type:"Investeerder",prio:1,lastContact:"2026-06-11",nextContact:"2026-06-29",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-11",text:"11/6 Gesproken. Pas opportuun als Pieter deal heeft met Rabo"}]},
+  {achternaam:"Simonis",voornaam:"Patrick",tv:"",rol:"Eigenaar",bedrijf:"Volta Groep",type:"Recruiter",prio:2,lastContact:"2026-06-03",nextContact:"2026-08-03",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-03",text:"3/6 Casual appje gestuurd. Geen reactie"}]},
+  {achternaam:"Snijders",voornaam:"Erik",tv:"",rol:"Directeur",bedrijf:"Nordic Climate Group",type:"Directeur",prio:1,lastContact:"2026-06-10",nextContact:"2026-06-25",agendaNotitie:"",producten:["Interim & Advies","Projaxis"],log:[{date:"2026-06-23",text:"23/6 3 lead mogelijkheden. Projaxis opvolgen"}]},
+  {achternaam:"Steenbakker",voornaam:"Brenda",tv:"",rol:"Recruiter Interim",bedrijf:"Ebbinge",type:"Recruiter",prio:1,lastContact:"2026-05-04",nextContact:"2026-06-26",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-05-26",text:"26/5 Meeting, was een beetje lauw. Over een maand heads up geven"}]},
+  {achternaam:"Sterkenburg",voornaam:"Olaf",tv:"",rol:"Self employed / CEO",bedrijf:"Koramic Investment",type:"Investeerder",prio:1,lastContact:"2026-06-15",nextContact:"2026-06-30",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-15",text:"15/6 Uitgebreid bijgesproken. Veel relevant netwerk. Probeert mij te introduceren bij Kasper Pruijsen"}]},
+  {achternaam:"Talstra",voornaam:"Ynze",tv:"",rol:"Partner",bedrijf:"Trip",type:"Advocaat",prio:1,lastContact:"2026-04-24",nextContact:"2026-06-12",agendaNotitie:"Morgenochtend bellen, ref naar leuk contact Reinier",producten:["Interim & Advies"],log:[{date:"2026-05-20",text:"20/5 Even bellen. 17/5 Mee naar Heerenveen-Ajax"}]},
+  {achternaam:"Valks",voornaam:"Erik",tv:"",rol:"Self employed",bedrijf:"",type:"Directeur",prio:2,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"",text:"Beeld verder ontwikkelen op kansen in de markt"}]},
+  {achternaam:"Verbeten",voornaam:"Huub",tv:"",rol:"Partner",bedrijf:"Marktlink Den Bosch",type:"Adviseur",prio:2,lastContact:"2026-06-01",nextContact:"2026-07-09",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-01",text:"1/6 Investeerder had al directeuren. Dode lijn voor nu. 1,5 maand weer"}]},
+  {achternaam:"Vries",voornaam:"Rob",tv:"de",rol:"Directeur",bedrijf:"Op zoek",type:"Directeur",prio:1,lastContact:"2026-06-04",nextContact:"2026-06-15",agendaNotitie:"Aangeven welk bedrijf ik wat voor zou willen",producten:["Interim & Advies"],log:[{date:"2026-06-10",text:"10/6 Gesproken. 8/6 App gestuurd. 4/6 Zou me kunnen introduceren bij Terberg en VDL"}]},
+  {achternaam:"Wellink",voornaam:"Boudewijn",tv:"",rol:"Partner",bedrijf:"Eight Advisory",type:"Adviseur",prio:1,lastContact:"2026-06-15",nextContact:"2026-07-14",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"",text:"Gesprek op 14/7 afwachten"}]},
+  {achternaam:"Wiersema",voornaam:"Tjitske",tv:"",rol:"Directeur",bedrijf:"Truckland Groep",type:"Directeur",prio:1,lastContact:"2026-06-15",nextContact:"2026-06-25",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-25",text:"25/6 Leuk gesprek. 15/6 Benaderde mij via Marco"}]},
+  {achternaam:"Wiertsema",voornaam:"Enno",tv:"",rol:"Directeur",bedrijf:"Adviz",type:"Directeur",prio:1,lastContact:"2026-06-24",nextContact:"2026-06-26",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-24",text:"24/6 FF update appje gestuurd. Check of hij Mels al gesproken had"}]},
+  {achternaam:"Wigmans",voornaam:"Martijn",tv:"",rol:"Partner",bedrijf:"Brightlink",type:"Recruiter",prio:1,lastContact:"2026-05-04",nextContact:"2026-06-12",agendaNotitie:"Morgenochtend bellen",producten:["Interim & Advies"],log:[{date:"2026-05-05",text:"5/5 Profiel gestuurd nav gesprek. Top of mind blijven"}]},
+  {achternaam:"Beljon",voornaam:"Dries",tv:"",rol:"Partner",bedrijf:"Lean Lawyers",type:"Advocaat",prio:1,lastContact:"2026-06-24",nextContact:"2026-06-25",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"2026-06-24",text:"24/6 Kans op project via Erik Snijders. Gaat mij bellen"}]},
+  {achternaam:"Boon",voornaam:"Peter",tv:"",rol:"DGA",bedrijf:"Maxem",type:"Directeur",prio:3,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"",text:"Enerzijds netwerken, anderzijds kijk op EMS landschap downloaden"}]},
+  {achternaam:"Becks",voornaam:"Ralf",tv:"",rol:"",bedrijf:"",type:"Directeur",prio:3,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"",text:"Creatieve gast, nu al 7 jaar ondernemer"}]},
+  {achternaam:"Bruggink",voornaam:"Pieter Bas",tv:"",rol:"",bedrijf:"",type:"Directeur",prio:4,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[]},
+  {achternaam:"Doomen",voornaam:"Rob",tv:"",rol:"",bedrijf:"",type:"Directeur",prio:4,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[]},
+  {achternaam:"Goores",voornaam:"Ramon",tv:"",rol:"",bedrijf:"",type:"Directeur",prio:4,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[]},
+  {achternaam:"Groenewegen",voornaam:"Matthijs",tv:"",rol:"",bedrijf:"",type:"Directeur",prio:4,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"",text:"Zakelijk een van de beste gasten die ik uit Delft ken"}]},
+  {achternaam:"Guépin",voornaam:"Felix",tv:"",rol:"",bedrijf:"Homerun Capital",type:"Investeerder",prio:3,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"",text:"Zijn er angles tot samenwerking? Volgens mij in ons segment"}]},
+  {achternaam:"Aarts",voornaam:"Kees",tv:"",rol:"",bedrijf:"",type:"Directeur",prio:4,lastContact:"",nextContact:"",agendaNotitie:"",producten:["Interim & Advies"],log:[{date:"",text:"Zakelijk een van de beste gasten die ik uit Delft ken"}]}
+];
+
+function addId(c,i){return{...c,id:c.id||(Date.now()+i+Math.random()*1000|0)}}
+function getToday(){return new Date().toISOString().slice(0,10)}
+function isOverdue(d){const t=getToday();return d&&d<t}
+function isWarn(d){if(!d)return false;const t=getToday();if(d<t)return false;const diff=(new Date(d)-new Date(t))/(86400000);return diff<=2}
+function fmt(d){return d||'—'}
+function fullName(c){const p=[c.voornaam];if(c.tv)p.push(c.tv);p.push(c.achternaam);return p.join(' ')}
+function initials(c){return((c.voornaam||'?')[0]+(c.achternaam||'?')[0]).toUpperCase()}
+
+let state={contacts:[],companies:[],tab:'contacten',activeProd:'Interim & Advies',filterType:'',filterPrio:'',search:'',sortCol:'prio',sortDir:1,detail:null,showNewForm:false,showLogForm:false,newContact:{voornaam:'',achternaam:'',tv:'',rol:'',bedrijf:'',type:'Directeur',prio:2,lastContact:'',nextContact:'',agendaNotitie:'',producten:['Interim & Advies'],log:[]}};
+
+function load(){
+  try{
+    const s=localStorage.getItem(STORAGE_KEY);
+    if(s){state.contacts=JSON.parse(s).map(addId);}
+    else{state.contacts=START_DATA.map(addId);save();}
+  }catch(e){state.contacts=START_DATA.map(addId);save();}
+  try{
+    const s2=localStorage.getItem(COMPANIES_KEY);
+    if(s2)state.companies=JSON.parse(s2);
+    else{state.companies=buildCompanies();saveCompanies();}
+  }catch(e){state.companies=buildCompanies();saveCompanies();}
+  render();
+}
+
+function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state.contacts));}catch(e){}}
+function saveCompanies(){try{localStorage.setItem(COMPANIES_KEY,JSON.stringify(state.companies));}catch(e){}}
+function buildCompanies(){return[...new Set(state.contacts.map(c=>c.bedrijf).filter(Boolean))].map(n=>({name:n,sector:'',notities:''}));}
+function ensureCompany(name){if(!name)return;if(!state.companies.find(c=>c.name===name)){state.companies.push({name,sector:'',notities:''});saveCompanies();}}
+
+function sortedFiltered(){
+  let list=state.contacts.filter(c=>{
+    if(state.activeProd!=='Alle')if(!c.producten||!c.producten.includes(state.activeProd))return false;
+    if(state.filterType&&c.type!==state.filterType)return false;
+    if(state.filterPrio&&c.prio!==parseInt(state.filterPrio))return false;
+    if(state.search){const q=state.search.toLowerCase();if(!fullName(c).toLowerCase().includes(q)&&!(c.bedrijf||'').toLowerCase().includes(q)&&!(c.rol||'').toLowerCase().includes(q))return false;}
+    return true;
+  });
+  list.sort((a,b)=>{
+    const ao=isOverdue(a.nextContact)?0:1,bo=isOverdue(b.nextContact)?0:1;
+    if(ao!==bo)return ao-bo;
+    if(state.sortCol==='prio'){const d=a.prio-b.prio;if(d)return d*state.sortDir;}
+    if(state.sortCol==='naam')return fullName(a).localeCompare(fullName(b))*state.sortDir;
+    if(state.sortCol==='nextContact')return((a.nextContact||'9')>(b.nextContact||'9')?1:-1)*state.sortDir;
+    if(state.sortCol==='lastContact')return((a.lastContact||'9')>(b.lastContact||'9')?1:-1)*state.sortDir;
+    return a.prio-b.prio;
+  });
+  return list;
+}
+
+function prioBadge(p){const cls=['','p1','p2','p3','p4'];return`<span class="prio-badge ${cls[p]}">${p}</span>`}
+function typeChip(t){return`<span class="type-chip">${t}</span>`}
+function prodDots(ps){return(ps||[]).map(p=>p==='Projaxis'?'<span class="prod-dot pd-px" title="Projaxis"></span>':'<span class="prod-dot pd-ia" title="Interim & Advies"></span>').join('')}
+function si(col){return state.sortCol===col?(state.sortDir>0?'↑':'↓'):'↕'}
+
+function render(){
+  const root=document.getElementById('root');
+  const list=sortedFiltered();
+  let html=`<div class="app">
+  <div class="topbar">
+    <span class="topbar-title">Huntlijst CRM</span>
+    <div class="prod-tabs">
+      ${['Interim & Advies','Projaxis','Alle'].map(p=>`<button class="prod-tab${state.activeProd===p?' active':''}" onclick="setProd('${p}')">${p}</button>`).join('')}
+    </div>
+    <button class="export-btn" onclick="exportXlsx()">↓ Exporteer naar Excel</button>
+  </div>
+  <div class="nav-tabs">
+    <div class="nav-tab${state.tab==='contacten'?' active':''}" onclick="setTab('contacten')">Contacten</div>
+    <div class="nav-tab${state.tab==='bedrijven'?' active':''}" onclick="setTab('bedrijven')">Bedrijven</div>
+  </div>`;
+
+  if(state.tab==='contacten'){
+    if(state.detail!==null){html+=renderDetail();} 
+    else {
+      html+=`<div class="toolbar">
+        <select class="filter-select" onchange="setFilter('type',this.value)">
+          <option value="">Alle types</option>
+          ${TYPES.map(t=>`<option value="${t}"${state.filterType===t?' selected':''}>${t}</option>`).join('')}
+        </select>
+        <select class="filter-select" onchange="setFilter('prio',this.value)">
+          <option value="">Alle prio</option>
+          ${PRIOS.map(p=>`<option value="${p}"${state.filterPrio==p?' selected':''}>${p}</option>`).join('')}
+        </select>
+        <input class="search-input" placeholder="Zoeken op naam, bedrijf, rol..." value="${state.search.replace(/"/g,'&quot;')}" oninput="setSearch(this.value)">
+        <span class="count-badge">${list.length} contacten</span>
+        <button class="add-btn" onclick="toggleNewForm()">+ Nieuw contact</button>
+      </div>`;
+      if(state.showNewForm)html+=renderNewForm();
+      html+=`<div class="content-scroll"><div class="table-wrap"><table>
+        <thead><tr>
+          <th onclick="setSort('naam')">Naam ${si('naam')}</th>
+          <th>Bedrijf</th><th>Rol</th><th>Type</th>
+          <th onclick="setSort('prio')">Prio ${si('prio')}</th>
+          <th onclick="setSort('lastContact')">Laatste contact ${si('lastContact')}</th>
+          <th onclick="setSort('nextContact')">Volgende contact ${si('nextContact')}</th>
+          <th>Product</th>
+        </tr></thead><tbody>
+        ${list.length===0?'<tr><td colspan="8" class="empty-state">Geen contacten gevonden</td></tr>':''}
+        ${list.map(c=>{
+          const ov=isOverdue(c.nextContact),wn=isWarn(c.nextContact);
+          const rc=ov?'overdue':wn?'warn':'';
+          const dc=ov?'date-overdue':wn?'date-warn':'';
+          return`<tr class="${rc}" onclick="openDetail(${c.id})">
+            <td><strong>${fullName(c)}</strong></td>
+            <td style="color:var(--text-secondary)">${c.bedrijf||'—'}</td>
+            <td style="color:var(--text-secondary)">${c.rol||'—'}</td>
+            <td>${typeChip(c.type)}</td>
+            <td>${prioBadge(c.prio)}</td>
+            <td><span class="date-mono">${fmt(c.lastContact)}</span></td>
+            <td><span class="date-mono ${dc}">${fmt(c.nextContact)}</span></td>
+            <td>${prodDots(c.producten)}</td>
+          </tr>`;
+        }).join('')}
+        </tbody></table></div></div>`;
+    }
+  } else {
+    html+=renderCompanies();
+  }
+  html+='</div>';
+  root.innerHTML=html;
+}
+
+function renderDetail(){
+  const c=state.contacts.find(x=>x.id===state.detail);
+  if(!c)return'';
+  const allBedrijven=[...new Set(state.contacts.map(x=>x.bedrijf).filter(Boolean))].sort();
+  const logF=state.showLogForm?`<div class="log-form">
+    <div style="display:flex;gap:8px;align-items:center">
+      <label style="font-size:11px;color:var(--text-muted)">Datum</label>
+      <input class="field-input" type="date" id="logDate" value="${getToday()}" style="width:150px">
+    </div>
+    <textarea class="log-textarea" id="logText" placeholder="Notitie over dit contactmoment..."></textarea>
+    <div style="display:flex;gap:8px">
+      <button class="save-log-btn" onclick="addLog(${c.id})">Opslaan</button>
+      <button class="btn-cancel" onclick="toggleLogForm()">Annuleren</button>
+    </div>
+  </div>`:'';
+  return`<div class="content-scroll"><div class="detail-panel">
+    <button class="back-btn" onclick="closeDetail()">← Terug naar overzicht</button>
+    <div class="detail-header">
+      <div class="detail-avatar">${initials(c)}</div>
+      <div style="flex:1">
+        <div class="detail-name">${fullName(c)}</div>
+        <div class="detail-sub">${[c.rol,c.bedrijf].filter(Boolean).join(' · ')||'Geen rol/bedrijf'}</div>
+      </div>
+      <button class="del-btn" onclick="deleteContact(${c.id})">✕ Verwijder</button>
+    </div>
+    ${c.agendaNotitie?`<div class="agenda-box"><div class="agenda-label">📅 Agenda-notitie</div><div contenteditable="true" style="font-size:13px;color:var(--text-primary);margin-top:4px" onblur="updateField(${c.id},'agendaNotitie',this.innerText)">${c.agendaNotitie}</div></div>`:''}
+    <div class="fields-grid">
+      <div class="field-group"><div class="field-label">Voornaam</div><div class="field-value" contenteditable="true" onblur="updateField(${c.id},'voornaam',this.innerText)">${c.voornaam||''}</div></div>
+      <div class="field-group"><div class="field-label">Achternaam</div><div class="field-value" contenteditable="true" onblur="updateField(${c.id},'achternaam',this.innerText)">${c.achternaam||''}</div></div>
+      <div class="field-group"><div class="field-label">Tussenvoegsel</div><div class="field-value" contenteditable="true" onblur="updateField(${c.id},'tv',this.innerText)">${c.tv||''}</div></div>
+      <div class="field-group"><div class="field-label">Rol / Functie</div><div class="field-value" contenteditable="true" onblur="updateField(${c.id},'rol',this.innerText)">${c.rol||''}</div></div>
+      <div class="field-group"><div class="field-label">Bedrijf</div>
+        <select class="field-select" onchange="updateField(${c.id},'bedrijf',this.value)">
+          <option value="">—</option>
+          ${allBedrijven.map(b=>`<option value="${b}"${c.bedrijf===b?' selected':''}>${b}</option>`).join('')}
+          <option value="__new__">+ Nieuw bedrijf...</option>
+        </select>
+      </div>
+      <div class="field-group"><div class="field-label">Type</div>
+        <select class="field-select" onchange="updateField(${c.id},'type',this.value)">${TYPES.map(t=>`<option${c.type===t?' selected':''}>${t}</option>`).join('')}</select>
+      </div>
+      <div class="field-group"><div class="field-label">Prioriteit</div>
+        <select class="field-select" onchange="updateField(${c.id},'prio',parseInt(this.value))">${PRIOS.map(p=>`<option value="${p}"${c.prio===p?' selected':''}>${p}</option>`).join('')}</select>
+      </div>
+      <div class="field-group"><div class="field-label">Laatste contact</div>
+        <input class="field-input" type="date" value="${c.lastContact||''}" onchange="updateField(${c.id},'lastContact',this.value)">
+      </div>
+      <div class="field-group"><div class="field-label">Volgende contact</div>
+        <input class="field-input" type="date" value="${c.nextContact||''}" onchange="updateField(${c.id},'nextContact',this.value)">
+      </div>
+      <div class="field-group" style="grid-column:1/-1"><div class="field-label">Agenda-notitie</div>
+        <div class="field-value" contenteditable="true" onblur="updateField(${c.id},'agendaNotitie',this.innerText)">${c.agendaNotitie||''}</div>
+      </div>
+      <div class="field-group" style="grid-column:1/-1"><div class="field-label">Producten</div>
+        <div class="prod-checkboxes">
+          ${PRODS.map(p=>`<label class="prod-check"><input type="checkbox"${(c.producten||[]).includes(p)?' checked':''} onchange="toggleProd(${c.id},'${p}',this.checked)"> ${p}</label>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="section-title">Contactlog</div>
+    <button class="add-log-btn" onclick="toggleLogForm()">+ Nieuw contactmoment toevoegen</button>
+    ${logF}
+    ${(c.log||[]).length===0?'<div style="color:var(--text-muted);font-size:12px;padding:12px 0">Geen contactmomenten geregistreerd.</div>':''}
+    ${(c.log||[]).map((l,i)=>`<div class="log-entry">
+      <div class="log-date">${l.date||'Geen datum'} <span style="cursor:pointer;color:var(--text-muted);font-size:10px;margin-left:8px" onclick="deleteLog(${c.id},${i})">✕ verwijder</span></div>
+      <div class="log-text">${(l.text||'').replace(/</g,'&lt;')}</div>
+    </div>`).join('')}
+  </div></div>`;
+}
+
+function renderNewForm(){
+  const nc=state.newContact;
+  return`<div class="new-contact-form">
+    <div style="font-size:13px;font-weight:500;margin-bottom:12px;color:var(--text-primary)">Nieuw contact toevoegen</div>
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">Voornaam *</label><input class="form-input" value="${nc.voornaam}" oninput="updateNew('voornaam',this.value)"></div>
+      <div class="form-row"><label class="form-label">Achternaam *</label><input class="form-input" value="${nc.achternaam}" oninput="updateNew('achternaam',this.value)"></div>
+      <div class="form-row"><label class="form-label">Tussenvoegsel</label><input class="form-input" value="${nc.tv}" oninput="updateNew('tv',this.value)"></div>
+      <div class="form-row"><label class="form-label">Rol</label><input class="form-input" value="${nc.rol}" oninput="updateNew('rol',this.value)"></div>
+      <div class="form-row"><label class="form-label">Bedrijf</label><input class="form-input" value="${nc.bedrijf}" oninput="updateNew('bedrijf',this.value)"></div>
+      <div class="form-row"><label class="form-label">Type</label><select class="form-input" onchange="updateNew('type',this.value)">${TYPES.map(t=>`<option${nc.type===t?' selected':''}>${t}</option>`).join('')}</select></div>
+      <div class="form-row"><label class="form-label">Prioriteit</label><select class="form-input" onchange="updateNew('prio',parseInt(this.value))">${PRIOS.map(p=>`<option value="${p}"${nc.prio===p?' selected':''}>${p}</option>`).join('')}</select></div>
+      <div class="form-row"><label class="form-label">Laatste contact</label><input class="form-input" type="date" value="${nc.lastContact}" onchange="updateNew('lastContact',this.value)"></div>
+      <div class="form-row"><label class="form-label">Volgende contact</label><input class="form-input" type="date" value="${nc.nextContact}" onchange="updateNew('nextContact',this.value)"></div>
+    </div>
+    <div class="form-row" style="margin-top:8px"><label class="form-label">Agenda-notitie</label><input class="form-input" value="${nc.agendaNotitie}" oninput="updateNew('agendaNotitie',this.value)"></div>
+    <div style="margin-top:10px"><span class="form-label">Producten</span>
+      <div class="prod-checkboxes" style="margin-top:6px">
+        ${PRODS.map(p=>`<label class="prod-check"><input type="checkbox"${nc.producten.includes(p)?' checked':''} onchange="toggleNewProd('${p}',this.checked)"> ${p}</label>`).join('')}
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-primary" onclick="saveNew()">Contact toevoegen</button>
+      <button class="btn-cancel" onclick="toggleNewForm()">Annuleren</button>
+    </div>
+  </div>`;
+}
+
+function renderCompanies(){
+  const byBedrijf={};
+  state.contacts.forEach(c=>{if(c.bedrijf)(byBedrijf[c.bedrijf]=byBedrijf[c.bedrijf]||[]).push(c);});
+  const names=[...new Set([...state.companies.map(c=>c.name),...Object.keys(byBedrijf)])].sort();
+  return`<div class="content-scroll"><div class="companies-list">
+    ${names.map(name=>{
+      const comp=state.companies.find(c=>c.name===name)||{name,sector:'',notities:''};
+      const contacts=byBedrijf[name]||[];
+      return`<div class="company-card">
+        <div class="company-name">${name}</div>
+        <div class="company-contacts">${contacts.length?contacts.map(c=>fullName(c)).join(' · '):'Geen contacten gekoppeld'}</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input class="form-input" style="flex:1;max-width:200px" placeholder="Sector/type..." value="${(comp.sector||'').replace(/"/g,'&quot;')}" onchange="updateComp('${name.replace(/'/g,"\\'")}','sector',this.value)">
+          <input class="form-input" style="flex:2" placeholder="Notities..." value="${(comp.notities||'').replace(/"/g,'&quot;')}" onchange="updateComp('${name.replace(/'/g,"\\'")}','notities',this.value)">
+        </div>
+      </div>`;
+    }).join('')}
+    ${names.length===0?'<div class="empty-state">Geen bedrijven gevonden</div>':''}
+  </div></div>`;
+}
+
+window.setProd=p=>{state.activeProd=p;state.detail=null;render();}
+window.setTab=t=>{state.tab=t;state.detail=null;render();}
+window.setFilter=(k,v)=>{if(k==='type')state.filterType=v;else state.filterPrio=v;render();}
+window.setSearch=v=>{state.search=v;render();}
+window.setSort=col=>{if(state.sortCol===col)state.sortDir*=-1;else{state.sortCol=col;state.sortDir=1;}render();}
+window.openDetail=id=>{state.detail=id;state.showLogForm=false;render();}
+window.closeDetail=()=>{state.detail=null;render();}
+window.toggleNewForm=()=>{state.showNewForm=!state.showNewForm;render();}
+window.toggleLogForm=()=>{state.showLogForm=!state.showLogForm;render();}
+window.updateNew=(k,v)=>{state.newContact[k]=v;}
+window.toggleNewProd=(p,checked)=>{if(checked){if(!state.newContact.producten.includes(p))state.newContact.producten.push(p);}else{state.newContact.producten=state.newContact.producten.filter(x=>x!==p);}}
+window.saveNew=()=>{
+  if(!state.newContact.achternaam.trim()){alert('Vul minimaal een achternaam in.');return;}
+  const c={...state.newContact,id:Date.now(),log:[]};
+  state.contacts.push(c);ensureCompany(c.bedrijf);
+  state.showNewForm=false;
+  state.newContact={voornaam:'',achternaam:'',tv:'',rol:'',bedrijf:'',type:'Directeur',prio:2,lastContact:'',nextContact:'',agendaNotitie:'',producten:['Interim & Advies'],log:[]};
+  save();render();
+}
+window.updateField=(id,k,v)=>{
+  const c=state.contacts.find(x=>x.id===id);if(!c)return;
+  if(k==='bedrijf'&&v==='__new__'){const n=prompt('Naam nieuw bedrijf:');if(n){c.bedrijf=n;ensureCompany(n);}else{c.bedrijf='';}}
+  else{c[k]=typeof v==='number'?v:v.trim();}
+  if(k==='bedrijf')ensureCompany(c.bedrijf);
+  save();render();
+}
+window.toggleProd=(id,p,checked)=>{
+  const c=state.contacts.find(x=>x.id===id);if(!c)return;
+  c.producten=c.producten||[];
+  if(checked){if(!c.producten.includes(p))c.producten.push(p);}else{c.producten=c.producten.filter(x=>x!==p);}
+  save();
+}
+window.addLog=(id)=>{
+  const c=state.contacts.find(x=>x.id===id);
+  const d=document.getElementById('logDate')?.value||getToday();
+  const t=document.getElementById('logText')?.value||'';
+  if(!t.trim())return;
+  c.log=[{date:d,text:t.trim()},...(c.log||[])];
+  if(d>=(c.lastContact||''))c.lastContact=d;
+  state.showLogForm=false;save();render();
+}
+window.deleteLog=(id,i)=>{
+  const c=state.contacts.find(x=>x.id===id);if(!c)return;
+  if(!confirm('Contactmoment verwijderen?'))return;
+  c.log.splice(i,1);save();render();
+}
+window.deleteContact=(id)=>{
+  if(!confirm('Dit contact permanent verwijderen?'))return;
+  state.contacts=state.contacts.filter(c=>c.id!==id);
+  state.detail=null;save();render();
+}
+window.updateComp=(name,k,v)=>{
+  let comp=state.companies.find(c=>c.name===name);
+  if(!comp){comp={name,sector:'',notities:''};state.companies.push(comp);}
+  comp[k]=v;saveCompanies();
+}
+window.exportXlsx=()=>{
+  const today=getToday();
+  const rows=state.contacts.map(c=>({
+    Naam:fullName(c),Bedrijf:c.bedrijf||'',Rol:c.rol||'',Type:c.type||'',
+    Prioriteit:c.prio,'Product(en)':(c.producten||[]).join(', '),
+    'Laatste contact':c.lastContact||'','Volgende contact':c.nextContact||'',
+    'Agenda-notitie':c.agendaNotitie||'',
+    Contactlog:(c.log||[]).map(l=>`[${l.date||'—'}] ${l.text}`).join('\n')
+  }));
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Contacten');
+  XLSX.writeFile(wb,`CRM_export_${today}.xlsx`);
+}
+
+load();
+</script>
+</body>
+</html>
