@@ -126,6 +126,13 @@ tr:hover td{background:var(--surface-1);cursor:pointer}
 .login-error{font-size:12px;color:#a02020;margin-top:8px;min-height:18px}
 .login-hint{font-size:11px;color:#8a8a85;margin-top:12px;cursor:pointer;text-decoration:underline;text-align:center}
 .login-hint-text{font-size:12px;color:#8a8a85;margin-top:8px;text-align:center;display:none}
+
+.autocomplete-wrap{position:relative}
+.autocomplete-list{position:absolute;top:100%;left:0;right:0;background:#f7f7f5;border:0.5px solid #d8d8d4;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:100;max-height:180px;overflow-y:auto;margin-top:2px}
+.autocomplete-item{padding:7px 10px;font-size:13px;cursor:pointer;color:#1a1a18;border-bottom:0.5px solid #ebebea}
+.autocomplete-item:last-child{border-bottom:none}
+.autocomplete-item:hover,.autocomplete-item.selected{background:#ddeeff;color:#0a3d7a}
+.autocomplete-item.new-item{color:#1a6bbf;font-style:italic}
 </style>
 </head>
 <body>
@@ -254,7 +261,7 @@ function fmt(d){return d||'—'}
 function fullName(c){const p=[c.voornaam];if(c.tv)p.push(c.tv);p.push(c.achternaam);return p.join(' ')}
 function initials(c){return((c.voornaam||'?')[0]+(c.achternaam||'?')[0]).toUpperCase()}
 
-let state={contacts:[],companies:[],bedrijfTypes:[...BEDRIJF_TYPES],sectoren:[...SECTOREN],tab:'contacten',activeProd:'Interim & Advies',filterType:'',filterPrio:'',search:'',sortCol:'prio',sortDir:1,detail:null,showNewForm:false,showLogForm:false,newContact:{voornaam:'',achternaam:'',tv:'',rol:'',bedrijf:'',type:'Directeur',prio:2,lastContact:'',nextContact:'',agendaNotitie:'',producten:['Interim & Advies'],log:[]}};
+let state={contacts:[],companies:[],bedrijfTypes:[...BEDRIJF_TYPES],sectoren:[...SECTOREN],tab:'contacten',companyDetail:null,companySearch:'',companyFilterType:'',companyFilterSector:'',showLijstbeheer:false,showNewCompany:false,newCompanyName:'',newCompany:{name:'',types:[],sectoren:[],notities:'',status:'prospect',contactIds:[]},activeProd:'Interim & Advies',filterType:'',filterPrio:'',search:'',sortCol:'prio',sortDir:1,detail:null,showNewForm:false,showLogForm:false,newContact:{voornaam:'',achternaam:'',tv:'',rol:'',bedrijf:'',type:'Directeur',prio:2,lastContact:'',nextContact:'',agendaNotitie:'',producten:['Interim & Advies'],log:[]}};
 
 function load(){
   try{
@@ -277,7 +284,7 @@ function load(){
 function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state.contacts));}catch(e){}}
 function saveCompanies(){try{localStorage.setItem(COMPANIES_KEY,JSON.stringify(state.companies));}catch(e){}}
 function saveLists(){try{localStorage.setItem(LISTS_KEY,JSON.stringify({bedrijfTypes:state.bedrijfTypes,sectoren:state.sectoren}));}catch(e){}}
-function buildCompanies(){return[...new Set(state.contacts.map(c=>c.bedrijf).filter(Boolean))].map(n=>({name:n,type:'',sector:'',notities:''}));}
+function buildCompanies(){return[...new Set(state.contacts.map(c=>c.bedrijf).filter(Boolean))].map(n=>({name:n,types:[],sectoren:[],notities:''}));}
 function bedrijfStatus(name){
   const contacts=state.contacts.filter(c=>c.bedrijf===name&&c.lastContact);
   if(!contacts.length)return'prospect';
@@ -285,7 +292,7 @@ function bedrijfStatus(name){
   const monthsAgo=(new Date(getToday())-new Date(latest))/(1000*60*60*24*30);
   return monthsAgo<=12?'actief':'prospect';
 }
-function ensureCompany(name){if(!name)return;if(!state.companies.find(c=>c.name===name)){state.companies.push({name,sector:'',notities:''});saveCompanies();}}
+function ensureCompany(name){if(!name)return;if(!state.companies.find(c=>c.name===name)){state.companies.push({name,types:[],sectoren:[],notities:''});saveCompanies();}}
 
 function sortedFiltered(){
   let list=state.contacts.filter(c=>{
@@ -472,7 +479,16 @@ function renderNewForm(){
       <div class="form-row"><label class="form-label">Achternaam *</label><input class="form-input" value="${nc.achternaam}" oninput="updateNew('achternaam',this.value)"></div>
       <div class="form-row"><label class="form-label">Tussenvoegsel</label><input class="form-input" value="${nc.tv}" oninput="updateNew('tv',this.value)"></div>
       <div class="form-row"><label class="form-label">Rol</label><input class="form-input" value="${nc.rol}" oninput="updateNew('rol',this.value)"></div>
-      <div class="form-row"><label class="form-label">Bedrijf</label><input class="form-input" value="${nc.bedrijf}" oninput="updateNew('bedrijf',this.value)"></div>
+      <div class="form-row"><label class="form-label">Bedrijf</label>
+        <div class="autocomplete-wrap">
+          <input class="form-input" id="bedrijf-input" value="${nc.bedrijf}" placeholder="Typ om te zoeken..." autocomplete="off"
+            oninput="updateNew('bedrijf',this.value);showBedrijfSuggestions(this.value)"
+            onkeydown="handleBedrijfKey(event)"
+            onfocus="showBedrijfSuggestions(this.value)"
+            onblur="setTimeout(()=>hideBedrijfSuggestions(),150)">
+          <div class="autocomplete-list" id="bedrijf-suggestions" style="display:none"></div>
+        </div>
+      </div>
       <div class="form-row"><label class="form-label">Type</label><select class="form-input" onchange="updateNew('type',this.value)">${TYPES.map(t=>`<option${nc.type===t?' selected':''}>${t}</option>`).join('')}</select></div>
       <div class="form-row"><label class="form-label">Prioriteit</label><select class="form-input" onchange="updateNew('prio',parseInt(this.value))">${PRIOS.map(p=>`<option value="${p}"${nc.prio===p?' selected':''}>${p}</option>`).join('')}</select></div>
       <div class="form-row"><label class="form-label">Laatste contact</label><input class="form-input" type="date" value="${nc.lastContact}" onchange="updateNew('lastContact',this.value)"></div>
@@ -492,68 +508,253 @@ function renderNewForm(){
 }
 
 function renderCompanies(){
+  if(state.companyDetail!==null){return renderCompanyDetail();}
   const byBedrijf={};
   state.contacts.forEach(c=>{if(c.bedrijf)(byBedrijf[c.bedrijf]=byBedrijf[c.bedrijf]||[]).push(c);});
   const names=[...new Set([...state.companies.map(c=>c.name),...Object.keys(byBedrijf)])].sort();
-  const showSectorFor=SECTOR_BEDRIJF_TYPES;
-  return`<div class="content-scroll"><div class="companies-list">
-    <div style="background:var(--surface-1);border:0.5px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px">
-      <div style="font-size:11px;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Lijstbeheer</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        <div>
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">Bedrijfstypes</div>
-          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">
-            ${state.bedrijfTypes.map((t,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;background:var(--surface-2);border:0.5px solid var(--border);font-size:11px">${t}<span style="cursor:pointer;color:var(--text-muted)" onclick="removeListItem('bedrijfTypes',${i})">✕</span></span>`).join('')}
-          </div>
-          <div style="display:flex;gap:4px">
-            <input class="form-input" id="newBedrijfType" placeholder="Nieuw type..." style="flex:1;font-size:12px;padding:3px 8px">
-            <button class="btn-primary" style="padding:3px 10px;font-size:11px" onclick="addListItem('bedrijfTypes','newBedrijfType')">+</button>
-          </div>
+
+  const fSearch=(state.companySearch||'').toLowerCase();
+  const fType=state.companyFilterType||'';
+  const fSector=state.companyFilterSector||'';
+  const filtered=names.filter(name=>{
+    const comp=state.companies.find(c=>c.name===name)||{};
+    const contacts=byBedrijf[name]||[];
+    if(fSearch){
+      const nameMatch=name.toLowerCase().includes(fSearch);
+      const contactMatch=contacts.some(c=>fullName(c).toLowerCase().includes(fSearch));
+      if(!nameMatch&&!contactMatch)return false;
+    }
+    if(fType&&!(comp.types||[]).includes(fType))return false;
+    if(fSector&&!(comp.sectoren||[]).includes(fSector))return false;
+    return true;
+  });
+
+  const lijstOpen=state.showLijstbeheer;
+
+  return`<div class="content-scroll">
+    <div class="toolbar" style="flex-wrap:wrap;gap:8px">
+      <input class="search-input" style="width:200px" placeholder="Zoek naam of contactpersoon..." value="${(state.companySearch||'').replace(/"/g,'&quot;')}" oninput="setCompanySearch(this.value)">
+      <select class="filter-select" onchange="setCompanyFilter('type',this.value)">
+        <option value="">Alle types</option>
+        ${state.bedrijfTypes.map(t=>`<option value="${t}"${state.companyFilterType===t?' selected':''}>${t}</option>`).join('')}
+      </select>
+      <select class="filter-select" onchange="setCompanyFilter('sector',this.value)">
+        <option value="">Alle sectoren</option>
+        ${state.sectoren.map(s=>`<option value="${s}"${state.companyFilterSector===s?' selected':''}>${s}</option>`).join('')}
+      </select>
+      <span class="count-badge">${filtered.length} bedrijven</span>
+      <button class="add-btn" onclick="toggleLijstbeheer()">⚙ Lijstbeheer</button>
+      <button class="add-btn" onclick="toggleNewCompany()">+ Nieuw bedrijf</button>
+    </div>
+
+    ${lijstOpen?renderLijstbeheer():''}
+    ${state.showNewCompany?renderNewCompanyForm():''}
+
+    <div class="table-wrap"><table>
+      <thead><tr>
+        <th>Bedrijf</th>
+        <th>Type</th>
+        <th>Sector</th>
+        <th>Status</th>
+        <th>Contactpersonen</th>
+      </tr></thead>
+      <tbody>
+      ${filtered.length===0?'<tr><td colspan="5" class="empty-state">Geen bedrijven gevonden</td></tr>':''}
+      ${filtered.map(name=>{
+        const comp=state.companies.find(c=>c.name===name)||{name,types:[],sectoren:[],notities:''};
+        const contacts=byBedrijf[name]||[];
+        const status=bedrijfStatus(name);
+        const statusStyle=status==='actief'?'background:#e0f5ec;color:#1a7a40;border:0.5px solid #4caf7d':'background:var(--surface-2);color:var(--text-muted);border:0.5px solid var(--border)';
+        return`<tr onclick="openCompanyDetail('${name.replace(/'/g,"\'")}')" style="cursor:pointer">
+          <td><strong>${name}</strong>${comp.notities?`<div style="font-size:11px;color:var(--text-muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">${comp.notities}</div>`:''}
+          </td>
+          <td><span style="font-size:11px;color:var(--text-secondary)">${(comp.types||[]).join(', ')||'—'}</span></td>
+          <td><span style="font-size:11px;color:var(--text-secondary)">${(comp.sectoren||[]).join(', ')||'—'}</span></td>
+          <td><span style="font-size:11px;padding:1px 8px;border-radius:10px;${statusStyle}">${status}</span></td>
+          <td style="font-size:12px;color:var(--text-secondary)">${contacts.length?contacts.map(c=>fullName(c)).join(', '):'—'}</td>
+        </tr>`;
+      }).join('')}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
+function renderLijstbeheer(){
+  return`<div class="new-contact-form" style="margin:0 0 0 0;border-radius:0;border-left:none;border-right:none">
+    <div style="font-size:13px;font-weight:500;margin-bottom:12px;color:var(--text-primary)">Lijstbeheer types & sectoren</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div>
+        <div class="form-label" style="margin-bottom:6px">Bedrijfstypes</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">
+          ${state.bedrijfTypes.map((t,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;background:var(--surface-2);border:0.5px solid var(--border);font-size:11px">${t}<span style="cursor:pointer;color:var(--text-muted)" onclick="removeListItem('bedrijfTypes',${i})">✕</span></span>`).join('')}
         </div>
-        <div>
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">Sectoren</div>
-          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">
-            ${state.sectoren.map((s,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;background:var(--surface-2);border:0.5px solid var(--border);font-size:11px">${s}<span style="cursor:pointer;color:var(--text-muted)" onclick="removeListItem('sectoren',${i})">✕</span></span>`).join('')}
-          </div>
-          <div style="display:flex;gap:4px">
-            <input class="form-input" id="newSector" placeholder="Nieuwe sector..." style="flex:1;font-size:12px;padding:3px 8px">
-            <button class="btn-primary" style="padding:3px 10px;font-size:11px" onclick="addListItem('sectoren','newSector')">+</button>
-          </div>
+        <div style="display:flex;gap:4px">
+          <input class="form-input" id="newBedrijfType" placeholder="Nieuw type..." style="flex:1;font-size:12px;padding:3px 8px">
+          <button class="btn-primary" style="padding:3px 10px;font-size:11px" onclick="addListItem('bedrijfTypes','newBedrijfType')">+</button>
+        </div>
+      </div>
+      <div>
+        <div class="form-label" style="margin-bottom:6px">Sectoren</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">
+          ${state.sectoren.map((s,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;background:var(--surface-2);border:0.5px solid var(--border);font-size:11px">${s}<span style="cursor:pointer;color:var(--text-muted)" onclick="removeListItem('sectoren',${i})">✕</span></span>`).join('')}
+        </div>
+        <div style="display:flex;gap:4px">
+          <input class="form-input" id="newSector" placeholder="Nieuwe sector..." style="flex:1;font-size:12px;padding:3px 8px">
+          <button class="btn-primary" style="padding:3px 10px;font-size:11px" onclick="addListItem('sectoren','newSector')">+</button>
         </div>
       </div>
     </div>
-    ${names.map(name=>{
-      const comp=state.companies.find(c=>c.name===name)||{name,type:'',sector:'',notities:''};
-      const contacts=byBedrijf[name]||[];
-      const status=bedrijfStatus(name);
-      const statusStyle=status==='actief'?'background:#e0f5ec;color:#1a7a40;border:0.5px solid #4caf7d':'background:var(--surface-2);color:var(--text-muted);border:0.5px solid var(--border)';
-      const showSector=showSectorFor.includes(comp.type);
-      const cid=name.replace(/[^a-zA-Z0-9]/g,'_');
-      return`<div class="company-card">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <div class="company-name" style="margin:0">${name}</div>
-          <span style="font-size:11px;padding:1px 8px;border-radius:10px;${statusStyle}">${status}</span>
+    <div class="form-actions">
+      <button class="btn-cancel" onclick="toggleLijstbeheer()">Sluiten</button>
+    </div>
+  </div>`;
+}
+
+function renderNewCompanyForm(){
+  const nc=state.newCompany;
+  const showSector=!nc.types.length||nc.types.some(t=>SECTOR_BEDRIJF_TYPES.includes(t));
+  const unlinked=state.contacts.sort((a,b)=>fullName(a).localeCompare(fullName(b)));
+  return`<div class="new-contact-form" style="margin:0;border-radius:0;border-left:none;border-right:none">
+    <div style="font-size:13px;font-weight:500;margin-bottom:12px;color:var(--text-primary)">Nieuw bedrijf toevoegen</div>
+    <div class="form-grid">
+      <div class="form-row" style="grid-column:1/-1">
+        <label class="form-label">Bedrijfsnaam *</label>
+        <input class="form-input" id="new-company-name" placeholder="Naam..." value="${nc.name.replace(/"/g,'&quot;')}"
+          oninput="state.newCompany.name=this.value">
+      </div>
+    </div>
+
+    <div style="margin-top:10px">
+      <div class="form-label" style="margin-bottom:6px">Type (meerdere mogelijk)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${state.bedrijfTypes.map(t=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;color:var(--text-secondary)">
+          <input type="checkbox"${nc.types.includes(t)?' checked':''} onchange="toggleNewCompanyField('types','${t}',this.checked)"> ${t}
+        </label>`).join('')}
+      </div>
+    </div>
+
+    ${showSector?`<div style="margin-top:10px">
+      <div class="form-label" style="margin-bottom:6px">Sector (meerdere mogelijk)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${state.sectoren.map(s=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;color:var(--text-secondary)">
+          <input type="checkbox"${nc.sectoren.includes(s)?' checked':''} onchange="toggleNewCompanyField('sectoren','${s}',this.checked)"> ${s}
+        </label>`).join('')}
+      </div>
+    </div>`:''}
+
+    <div style="margin-top:10px">
+      <div class="form-label" style="margin-bottom:6px">Status</div>
+      <div style="display:flex;gap:12px">
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;color:var(--text-secondary)">
+          <input type="radio" name="newCompanyStatus" value="prospect"${nc.status==='prospect'?' checked':''} onchange="state.newCompany.status='prospect';render()"> Prospect
+        </label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;color:var(--text-secondary)">
+          <input type="radio" name="newCompanyStatus" value="actief"${nc.status==='actief'?' checked':''} onchange="state.newCompany.status='actief';render()"> Actief
+        </label>
+      </div>
+    </div>
+
+    <div style="margin-top:10px">
+      <div class="form-label" style="margin-bottom:6px">Contactpersonen koppelen</div>
+      <div style="display:flex;gap:8px">
+        <select class="form-input" id="new-company-contact-select" style="flex:1">
+          <option value="">Selecteer contact...</option>
+          ${unlinked.filter(c=>!nc.contactIds.includes(c.id)).map(c=>`<option value="${c.id}">${fullName(c)}${c.bedrijf?' ('+c.bedrijf+')':''}</option>`).join('')}
+        </select>
+        <button class="btn-primary" style="padding:4px 10px" onclick="addNewCompanyContact()">+</button>
+      </div>
+      ${nc.contactIds.length?`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">
+        ${nc.contactIds.map(id=>{const c=state.contacts.find(x=>x.id===id);return c?`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;background:var(--surface-2);border:0.5px solid var(--border);font-size:11px">${fullName(c)}<span style="cursor:pointer;color:var(--text-muted)" onclick="removeNewCompanyContact(${id})">✕</span></span>`:'';}).join('')}
+      </div>`:''}
+    </div>
+
+    <div style="margin-top:10px">
+      <div class="form-label" style="margin-bottom:4px">Notities</div>
+      <input class="form-input" style="width:100%" placeholder="Notities..." value="${nc.notities.replace(/"/g,'&quot;')}" oninput="state.newCompany.notities=this.value">
+    </div>
+
+    <div class="form-actions">
+      <button class="btn-primary" onclick="saveNewCompany()">Bedrijf toevoegen</button>
+      <button class="btn-cancel" onclick="toggleNewCompany()">Annuleren</button>
+    </div>
+  </div>`;
+}
+
+function renderCompanyDetail(){
+  const name=state.companyDetail;
+  let comp=state.companies.find(c=>c.name===name);
+  if(!comp){comp={name,types:[],sectoren:[],notities:''};state.companies.push(comp);saveCompanies();}
+  const byBedrijf={};
+  state.contacts.forEach(c=>{if(c.bedrijf)(byBedrijf[c.bedrijf]=byBedrijf[c.bedrijf]||[]).push(c);});
+  const linked=byBedrijf[name]||[];
+  const unlinked=state.contacts.filter(c=>c.bedrijf!==name).sort((a,b)=>fullName(a).localeCompare(fullName(b)));
+  const status=bedrijfStatus(name);
+  const statusStyle=status==='actief'?'background:#e0f5ec;color:#1a7a40;border:0.5px solid #4caf7d':'background:var(--surface-2);color:var(--text-muted);border:0.5px solid var(--border)';
+  const showSector=!comp.types||!comp.types.length||comp.types.some(t=>SECTOR_BEDRIJF_TYPES.includes(t));
+
+  return`<div class="content-scroll"><div class="detail-panel">
+    <button class="back-btn" onclick="closeCompanyDetail()">← Terug naar bedrijven</button>
+    <div class="detail-header">
+      <div class="detail-avatar" style="border-radius:8px">${(name||'?')[0].toUpperCase()}</div>
+      <div style="flex:1">
+        <div class="detail-name" contenteditable="true" onblur="renameCompany(this.innerText)">${name}</div>
+        <span style="font-size:11px;padding:2px 8px;border-radius:10px;${statusStyle}">${status}</span>
+      </div>
+      <button class="del-btn" onclick="deleteCompany('${name.replace(/'/g,"\'")}')">✕ Verwijder</button>
+    </div>
+
+    <div class="fields-grid">
+      <div class="field-group" style="grid-column:1/-1">
+        <div class="field-label">Type (meerdere mogelijk)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">
+          ${state.bedrijfTypes.map(t=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;color:var(--text-secondary)"><input type="checkbox"${(comp.types||[]).includes(t)?' checked':''} onchange="toggleCompanyType('${name.replace(/'/g,"\'")}','${t}',this.checked)"> ${t}</label>`).join('')}
         </div>
-        <div class="company-contacts" style="margin-bottom:8px">${contacts.length?contacts.map(c=>fullName(c)).join(' · '):'Geen contacten gekoppeld'}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <select class="form-input" style="flex:1;min-width:140px;max-width:180px" onchange="updateComp('${cid}','type',this.value,true)">
-            <option value="">Type...</option>
-            ${state.bedrijfTypes.map(t=>`<option value="${t}"${comp.type===t?' selected':''}>${t}</option>`).join('')}
-          </select>
-          ${showSector?`<select class="form-input" style="flex:1;min-width:160px;max-width:200px" onchange="updateComp('${cid}','sector',this.value,true)">
-            <option value="">Sector...</option>
-            ${state.sectoren.map(s=>`<option value="${s}"${comp.sector===s?' selected':''}>${s}</option>`).join('')}
-          </select>`:''}
-          <input class="form-input" style="flex:2;min-width:200px" placeholder="Notities..." value="${(comp.notities||'').replace(/"/g,'&quot;')}" onchange="updateComp('${cid}','notities',this.value,true)">
+      </div>
+      ${showSector?`<div class="field-group" style="grid-column:1/-1">
+        <div class="field-label">Sector (meerdere mogelijk)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">
+          ${state.sectoren.map(s=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;color:var(--text-secondary)"><input type="checkbox"${(comp.sectoren||[]).includes(s)?' checked':''} onchange="toggleCompanySector('${name.replace(/'/g,"\'")}','${s}',this.checked)"> ${s}</label>`).join('')}
         </div>
-      </div>`;
-    }).join('')}
-    ${names.length===0?'<div class="empty-state">Geen bedrijven gevonden</div>':''}
+      </div>`:''}
+      <div class="field-group" style="grid-column:1/-1">
+        <div class="field-label">Notities</div>
+        <div class="field-value" contenteditable="true" onblur="updateCompanyField('${name.replace(/'/g,"\'")}','notities',this.innerText)">${comp.notities||''}</div>
+      </div>
+    </div>
+
+    <div class="section-title">Gekoppelde contactpersonen</div>
+    ${linked.length===0?'<div style="color:var(--text-muted);font-size:12px;padding:8px 0">Geen contactpersonen gekoppeld</div>':''}
+    ${linked.map(c=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid var(--border)">
+      <div>
+        <span style="font-size:13px;font-weight:500">${fullName(c)}</span>
+        <span style="font-size:11px;color:var(--text-muted);margin-left:8px">${c.rol||''}</span>
+      </div>
+      <button class="del-btn" onclick="unlinkContact(${c.id},'${name.replace(/'/g,"\'")}')">Loskoppelen</button>
+    </div>`).join('')}
+
+    <div class="section-title" style="margin-top:16px">Contactpersoon koppelen</div>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <select class="field-select" id="link-contact-select" style="flex:1">
+        <option value="">Selecteer contact...</option>
+        ${unlinked.map(c=>`<option value="${c.id}">${fullName(c)}${c.bedrijf?' ('+c.bedrijf+')':''}</option>`).join('')}
+      </select>
+      <button class="btn-primary" onclick="linkContact('${name.replace(/'/g,"\'")}')">Koppelen</button>
+    </div>
+
+    <div class="section-title" style="margin-top:20px">
+      Lijstbeheer
+      <button class="add-btn" style="margin-left:10px;font-size:11px;padding:2px 10px" onclick="toggleLijstbeheer()">
+        ${state.showLijstbeheer?'Sluiten':'⚙ Bewerken'}
+      </button>
+    </div>
+    ${state.showLijstbeheer?renderLijstbeheer():''}
+
   </div></div>`;
 }
 
+
 window.setProd=p=>{state.activeProd=p;state.detail=null;render();}
-window.setTab=t=>{state.tab=t;state.detail=null;render();}
+window.setTab=t=>{state.tab=t;state.detail=null;state.companyDetail=null;render();}
 window.setFilter=(k,v)=>{if(k==='type')state.filterType=v;else state.filterPrio=v;render();}
 window.setSearch=v=>{state.search=v;render();}
 window.setSort=col=>{if(state.sortCol===col)state.sortDir*=-1;else{state.sortCol=col;state.sortDir=1;}render();}
@@ -668,6 +869,121 @@ window.exportXlsx=()=>{
   XLSX.utils.book_append_sheet(wb,wsB,'Bedrijven');
   XLSX.writeFile(wb,`CRM_export_${today}.xlsx`);
 }
+window.openCompanyDetail=(name)=>{state.companyDetail=name;state.showLijstbeheer=false;state.showNewCompany=false;render();}
+window.toggleLijstbeheer=()=>{state.showLijstbeheer=!state.showLijstbeheer;render();}
+window.toggleNewCompany=()=>{
+  state.showNewCompany=!state.showNewCompany;
+  state.newCompany={name:'',types:[],sectoren:[],notities:'',status:'prospect',contactIds:[]};
+  render();
+}
+window.toggleNewCompanyField=(field,val,checked)=>{
+  if(checked){if(!state.newCompany[field].includes(val))state.newCompany[field].push(val);}
+  else{state.newCompany[field]=state.newCompany[field].filter(x=>x!==val);}
+  render();
+}
+window.addNewCompanyContact=()=>{
+  const sel=document.getElementById('new-company-contact-select');
+  const id=parseInt(sel?.value);
+  if(!id)return;
+  if(!state.newCompany.contactIds.includes(id))state.newCompany.contactIds.push(id);
+  render();
+}
+window.removeNewCompanyContact=(id)=>{
+  state.newCompany.contactIds=state.newCompany.contactIds.filter(x=>x!==id);
+  render();
+}
+window.saveNewCompany=()=>{
+  const n=(state.newCompany.name||'').trim();
+  if(!n){document.getElementById('new-company-name')?.focus();return;}
+  if(state.companies.find(c=>c.name===n)){
+    const el=document.getElementById('new-company-name');
+    if(el)el.style.borderColor='var(--border-danger)';
+    return;
+  }
+  const nc=state.newCompany;
+  state.companies.push({name:n,types:nc.types,sectoren:nc.sectoren,notities:nc.notities,status:nc.status});
+  // Link selected contacts to this company
+  nc.contactIds.forEach(id=>{
+    const c=state.contacts.find(x=>x.id===id);
+    if(c)c.bedrijf=n;
+  });
+  saveCompanies();
+  save();
+  state.showNewCompany=false;
+  state.newCompany={name:'',types:[],sectoren:[],notities:'',status:'prospect',contactIds:[]};
+  state.companyDetail=n;
+  render();
+}
+window.closeCompanyDetail=()=>{state.companyDetail=null;render();}
+window.setCompanySearch=v=>{state.companySearch=v;render();}
+window.setCompanyFilter=(k,v)=>{if(k==='type')state.companyFilterType=v;else state.companyFilterSector=v;render();}
+
+
+
+window.renameCompany=(newName)=>{
+  const old=state.companyDetail;
+  const n=(newName||'').trim();
+  if(!n||n===old)return;
+  if(state.companies.find(c=>c.name===n)){render();return;}
+  const comp=state.companies.find(c=>c.name===old);
+  if(comp)comp.name=n;
+  state.contacts.forEach(c=>{if(c.bedrijf===old)c.bedrijf=n;});
+  state.companyDetail=n;
+  saveCompanies();save();render();
+}
+
+window.deleteCompany=(name)=>{
+  if(!confirm(`Bedrijf "${name}" verwijderen? Contactpersonen worden losgekoppeld.`))return;
+  state.companies=state.companies.filter(c=>c.name!==name);
+  state.contacts.forEach(c=>{if(c.bedrijf===name)c.bedrijf='';});
+  state.companyDetail=null;
+  saveCompanies();save();render();
+}
+
+window.toggleCompanyType=(name,type,checked)=>{
+  let comp=state.companies.find(c=>c.name===name);
+  if(!comp){comp={name,types:[],sectoren:[],notities:''};state.companies.push(comp);}
+  comp.types=comp.types||[];
+  if(checked){if(!comp.types.includes(type))comp.types.push(type);}
+  else{comp.types=comp.types.filter(t=>t!==type);}
+  saveCompanies();
+}
+
+window.toggleCompanySector=(name,sector,checked)=>{
+  let comp=state.companies.find(c=>c.name===name);
+  if(!comp){comp={name,types:[],sectoren:[],notities:''};state.companies.push(comp);}
+  comp.sectoren=comp.sectoren||[];
+  if(checked){if(!comp.sectoren.includes(sector))comp.sectoren.push(sector);}
+  else{comp.sectoren=comp.sectoren.filter(s=>s!==sector);}
+  saveCompanies();
+}
+
+window.updateCompanyField=(name,k,v)=>{
+  let comp=state.companies.find(c=>c.name===name);
+  if(!comp){comp={name,types:[],sectoren:[],notities:''};state.companies.push(comp);}
+  comp[k]=(v||'').trim();
+  saveCompanies();
+}
+
+window.linkContact=(compName)=>{
+  const sel=document.getElementById('link-contact-select');
+  const id=parseInt(sel?.value);
+  if(!id)return;
+  const c=state.contacts.find(x=>x.id===id);
+  if(!c)return;
+  c.bedrijf=compName;
+  ensureCompany(compName);
+  save();render();
+}
+
+window.unlinkContact=(id,compName)=>{
+  const c=state.contacts.find(x=>x.id===id);
+  if(!c)return;
+  if(!confirm(`${fullName(c)} loskoppelen van ${compName}?`))return;
+  c.bedrijf='';
+  save();render();
+}
+
 
 
 // Login
@@ -719,6 +1035,47 @@ function doLogin(){
 }
 
 if(checkLogin()){load();}else{showLogin();}
+
+let bedrijfSelectedIdx=-1;
+
+window.showBedrijfSuggestions=(val)=>{
+  const list=document.getElementById('bedrijf-suggestions');
+  if(!list)return;
+  const q=(val||'').toLowerCase().trim();
+  const allBedrijven=[...new Set(state.contacts.map(c=>c.bedrijf).filter(Boolean))].sort();
+  const matches=q?allBedrijven.filter(b=>b.toLowerCase().includes(q)):allBedrijven;
+  if(!matches.length&&!q){list.style.display='none';return;}
+  const showNew=q&&!allBedrijven.find(b=>b.toLowerCase()===q);
+  let html=matches.slice(0,10).map((b,i)=>`<div class="autocomplete-item" data-val="${b.replace(/"/g,'&quot;')}" onmousedown="selectBedrijf('${b.replace(/'/g,"\'")}')">${b}</div>`).join('');
+  if(showNew)html+=`<div class="autocomplete-item new-item" onmousedown="selectBedrijf('${val.replace(/'/g,"\'")}')">+ Nieuw bedrijf: "${val}"</div>`;
+  list.innerHTML=html;
+  list.style.display=matches.length||showNew?'block':'none';
+  bedrijfSelectedIdx=-1;
+}
+
+window.hideBedrijfSuggestions=()=>{
+  const list=document.getElementById('bedrijf-suggestions');
+  if(list)list.style.display='none';
+  bedrijfSelectedIdx=-1;
+}
+
+window.selectBedrijf=(val)=>{
+  state.newContact.bedrijf=val;
+  const input=document.getElementById('bedrijf-input');
+  if(input)input.value=val;
+  hideBedrijfSuggestions();
+}
+
+window.handleBedrijfKey=(e)=>{
+  const list=document.getElementById('bedrijf-suggestions');
+  if(!list||list.style.display==='none')return;
+  const items=list.querySelectorAll('.autocomplete-item');
+  if(e.key==='ArrowDown'){e.preventDefault();bedrijfSelectedIdx=Math.min(bedrijfSelectedIdx+1,items.length-1);}
+  else if(e.key==='ArrowUp'){e.preventDefault();bedrijfSelectedIdx=Math.max(bedrijfSelectedIdx-1,0);}
+  else if(e.key==='Enter'&&bedrijfSelectedIdx>=0){e.preventDefault();selectBedrijf(items[bedrijfSelectedIdx].dataset.val);return;}
+  else if(e.key==='Escape'){hideBedrijfSuggestions();return;}
+  items.forEach((item,i)=>{item.classList.toggle('selected',i===bedrijfSelectedIdx);});
+}
 
 </script>
 </body>
