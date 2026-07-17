@@ -261,7 +261,7 @@ function fmt(d){return d||'—'}
 function fullName(c){const p=[c.voornaam];if(c.tv)p.push(c.tv);p.push(c.achternaam);return p.join(' ')}
 function initials(c){return((c.voornaam||'?')[0]+(c.achternaam||'?')[0]).toUpperCase()}
 
-let state={contacts:[],companies:[],bedrijfTypes:[...BEDRIJF_TYPES],sectoren:[...SECTOREN],tab:'contacten',companyDetail:null,companySearch:'',companyFilterType:'',companyFilterSector:'',showLijstbeheer:false,showNewCompany:false,newCompanyName:'',newCompany:{name:'',types:[],sectoren:[],notities:'',status:'prospect',contactIds:[]},activeProd:'Interim & Advies',filterType:'',filterPrio:'',search:'',sortCol:'prio',sortDir:1,detail:null,showNewForm:false,showLogForm:false,newContact:{voornaam:'',achternaam:'',tv:'',rol:'',bedrijf:'',type:'Directeur',prio:2,lastContact:'',nextContact:'',agendaNotitie:'',producten:['Interim & Advies'],log:[]}};
+let state={contacts:[],companies:[],bedrijfTypes:[...BEDRIJF_TYPES],sectoren:[...SECTOREN],tab:'contacten',companyDetail:null,companySearch:'',companyFilterType:'',companyFilterSector:'',showLijstbeheer:false,showNewCompany:false,newCompanyName:'',newCompany:{name:'',types:[],sectoren:[],notities:'',status:'prospect',contactIds:[]},activeProd:'Interim & Advies',filterType:'',filterPrio:'',search:'',sortCol:'prio',sortDir:1,detail:null,showNewForm:false,showLogForm:false,newContact:{voornaam:'',achternaam:'',tv:'',rol:'',bedrijf:'',type:'Directeur',prio:2,lastContact:'',nextContact:'',agendaNotitie:'',feitjes:'',producten:['Interim & Advies'],log:[]}};
 
 function load(){
   try{
@@ -456,6 +456,11 @@ function renderDetail(){
         </div>
       </div>
     </div>
+    <div class="section-title">Persoonlijke feitjes</div>
+    <div style="background:var(--surface-1);border:0.5px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:4px">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">Verjaardag · kinderen · secretaresse · interesses · tenure · overig</div>
+      <div class="field-value" contenteditable="true" style="min-height:48px;white-space:pre-wrap;line-height:1.6" onblur="updateField(${c.id},'feitjes',this.innerText)">${(c.feitjes||'').replace(/</g,'&lt;')||'<span style=\'color:var(--text-muted);font-style:italic\'>Klik om feitjes toe te voegen...</span>'}</div>
+    </div>
     <div class="section-title">Contactlog</div>
     <button class="add-log-btn" onclick="toggleLogForm()">+ Nieuw contactmoment toevoegen</button>
     ${logF}
@@ -495,6 +500,7 @@ function renderNewForm(){
       <div class="form-row"><label class="form-label">Volgende contact</label><input class="form-input" type="date" value="${nc.nextContact}" onchange="updateNew('nextContact',this.value)"></div>
     </div>
     <div class="form-row" style="margin-top:8px"><label class="form-label">Agenda-notitie</label><input class="form-input" value="${nc.agendaNotitie}" oninput="updateNew('agendaNotitie',this.value)"></div>
+    <div class="form-row" style="margin-top:8px"><label class="form-label">Persoonlijke feitjes</label><textarea class="form-input" style="resize:vertical;min-height:60px;line-height:1.5" placeholder="Verjaardag, kinderen, interesses, hoe lang bij bedrijf..." oninput="updateNew('feitjes',this.value)">${nc.feitjes||''}</textarea></div>
     <div style="margin-top:10px"><span class="form-label">Producten</span>
       <div class="prod-checkboxes" style="margin-top:6px">
         ${PRODS.map(p=>`<label class="prod-check"><input type="checkbox"${nc.producten.includes(p)?' checked':''} onchange="toggleNewProd('${p}',this.checked)"> ${p}</label>`).join('')}
@@ -769,7 +775,7 @@ window.saveNew=()=>{
   const c={...state.newContact,id:Date.now(),log:[]};
   state.contacts.push(c);ensureCompany(c.bedrijf);
   state.showNewForm=false;
-  state.newContact={voornaam:'',achternaam:'',tv:'',rol:'',bedrijf:'',type:'Directeur',prio:2,lastContact:'',nextContact:'',agendaNotitie:'',producten:['Interim & Advies'],log:[]};
+  state.newContact={voornaam:'',achternaam:'',tv:'',rol:'',bedrijf:'',type:'Directeur',prio:2,lastContact:'',nextContact:'',agendaNotitie:'',feitjes:'',producten:['Interim & Advies'],log:[]};
   save();render();
 }
 window.updateField=(id,k,v)=>{
@@ -844,6 +850,7 @@ window.exportXlsx=()=>{
     'Laatste contact':c.lastContact||'',
     'Volgende contact':c.prio<=2?(c.nextContact||''):'n.v.t.',
     'Agenda-notitie':c.agendaNotitie||'',
+    'Persoonlijke feitjes':c.feitjes||'',
     Contactlog:(c.log||[]).map(l=>`[${l.date||'—'}] ${l.text}`).join('\n')
   }));
 
